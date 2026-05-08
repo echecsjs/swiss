@@ -11,9 +11,6 @@ coverage/
 docs/api/*
 !docs/api/.gitkeep
 
-# Worktrees
-/.worktrees/
-
 # Agent planning artifacts
 .superpowers/
 docs/superpowers/
