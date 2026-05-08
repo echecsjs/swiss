@@ -13,3 +13,7 @@ docs/api/*
 
 # Worktrees
 /.worktrees/
+
+# Agent planning artifacts
+.superpowers/
+docs/superpowers/
