@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@echecs/swiss)](https://www.npmjs.com/package/@echecs/swiss)
 [![Coverage](https://codecov.io/gh/echecsjs/swiss/branch/main/graph/badge.svg)](https://codecov.io/gh/echecsjs/swiss)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Spec](https://img.shields.io/badge/Spec-FIDE-green.svg)](SPEC.md)
 
 **Swiss** is a TypeScript library for Swiss chess tournament pairing, following
 [FIDE rules](https://handbook.fide.com/chapter/C0401202507).
