@@ -29,7 +29,7 @@ import {
 } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 
 // ---------------------------------------------------------------------------
@@ -477,17 +477,17 @@ function finalizePairMC(
 
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
-  const playedRounds = games.length;
+  const playedRounds = rounds.length;
   const expectedRounds = options?.expectedRounds ?? playedRounds + 1;
-  const states = buildPlayerStates(players, games);
+  const states = buildPlayerStates(players, rounds);
 
   // Sort: score DESC, TPN ASC
   const sorted = [...states].toSorted((a, b) =>
@@ -600,7 +600,7 @@ function pair(
   const np = pairedSorted.length;
 
   if (np < 2) {
-    return { byes: [], pairings: [] };
+    return { byes: [], games: [] };
   }
 
   // -------------------------------------------------------------------------
@@ -1683,12 +1683,12 @@ function pair(
     result.push(a.tpn < b.tpn ? [a, b] : [b, a]);
   }
 
-  const pairings = result.map(([a, b]) =>
+  const games = result.map(([a, b]) =>
     allocateColor(a, b, FIDE_COLOR_RULES, dutchRankCompare),
   );
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         black: p.black,
         rule: 'dutch-article-5.2',
@@ -1700,8 +1700,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

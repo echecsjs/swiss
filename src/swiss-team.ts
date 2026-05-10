@@ -10,7 +10,7 @@ import {
 } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 
 /**
@@ -23,7 +23,7 @@ import type { PlayerState } from './utilities.js';
  * Then applies rules 4.3.1 through 4.3.9 in descending priority.
  */
 function makeAllocateTeamColors(
-  games: Game[][],
+  rounds: CompletedRound[],
 ): (a: PlayerState, b: PlayerState) => { black: string; white: string } {
   return function allocateTeamColors(
     a: PlayerState,
@@ -34,8 +34,8 @@ function makeAllocateTeamColors(
       a.score > b.score || (a.score === b.score && a.tpn < b.tpn);
     const [first, other] = firstIsA ? [a, b] : [b, a];
 
-    const firstHistory = matchColorHistory(first.id, games);
-    const otherHistory = matchColorHistory(other.id, games);
+    const firstHistory = matchColorHistory(first.id, rounds);
+    const otherHistory = matchColorHistory(other.id, rounds);
 
     // Helper: give first-team White.
     const firstWhite = (): { black: string; white: string } => ({
@@ -56,8 +56,8 @@ function makeAllocateTeamColors(
     }
 
     // 4.3.2 — Only one team has a Type A color preference → grant it.
-    const firstPref = typeAColorPreference(first.id, games);
-    const otherPref = typeAColorPreference(other.id, games);
+    const firstPref = typeAColorPreference(first.id, rounds);
+    const otherPref = typeAColorPreference(other.id, rounds);
 
     if (firstPref !== undefined && otherPref === undefined) {
       return firstPref === 'white' ? firstWhite() : firstBlack();
@@ -136,16 +136,16 @@ function makeAllocateTeamColors(
  */
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
 
-  const states = buildPlayerStates(players, games);
+  const states = buildPlayerStates(players, rounds);
   const ranked = rankByScoreThenTPN(states);
   const byeState = assignLexicographicBye(ranked);
 
@@ -161,10 +161,10 @@ function pair(
   }
 
   const toBePaired = ranked.filter((s) => s.id !== byeId);
-  const pairings = pairAllBrackets(toBePaired, makeAllocateTeamColors(games));
+  const games = pairAllBrackets(toBePaired, makeAllocateTeamColors(rounds));
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         phase: 'main',
         playerA: p.white,
@@ -183,8 +183,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

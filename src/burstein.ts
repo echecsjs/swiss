@@ -28,12 +28,11 @@ import {
   allocateColor,
   assignBye,
   buildPlayerStates,
-  normaliseGames,
   scoreGroups,
 } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Game, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 import type { BracketContext, Criterion } from './weights.js';
 
@@ -62,6 +61,18 @@ function computeBuchholz(
 }
 
 /**
+ * Returns the numeric score (0, 0.5, or 1) earned by `player` in a game.
+ */
+function gameScore(player: string, game: Game): number {
+  if (game.result === 'draw') return 0.5;
+  if (game.result === 'none') return 0;
+  return (game.result === 'white' && game.white === player) ||
+    (game.result === 'black' && game.black === player)
+    ? 1
+    : 0;
+}
+
+/**
  * Computes Sonneborn-Berger index for a player: sum of (result * opponent score).
  * Win against opponent → add opponent's score.
  * Draw against opponent → add 0.5 * opponent's score.
@@ -69,22 +80,21 @@ function computeBuchholz(
  */
 function computeSonnebornBerger(
   state: PlayerState,
-  games: Game[][],
+  rounds: CompletedRound[],
   stateById: Map<string, PlayerState>,
 ): number {
   let sum = 0;
-  for (const round of games) {
-    for (const g of round) {
-      if (g.black === '') continue;
+  for (const round of rounds) {
+    for (const g of round.games) {
       if (g.white === state.id) {
         const opp = stateById.get(g.black);
         if (opp !== undefined) {
-          sum += g.result * opp.score;
+          sum += gameScore(state.id, g) * opp.score;
         }
       } else if (g.black === state.id) {
         const opp = stateById.get(g.white);
         if (opp !== undefined) {
-          sum += (1 - g.result) * opp.score;
+          sum += gameScore(state.id, g) * opp.score;
         }
       }
     }
@@ -248,21 +258,18 @@ const BURSTEIN_CRITERIA: Criterion[] = [
 
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
 
-  const totalRounds = games.length + 1;
+  const totalRounds = rounds.length + 1;
 
-  // Normalise legacy bye sentinel (black === white) to canonical (black === '')
-  const normalisedGames = normaliseGames(games);
-
-  const states = buildPlayerStates(players, normalisedGames);
+  const states = buildPlayerStates(players, rounds);
 
   // Build O(1) lookup by id
   const stateById = new Map<string, PlayerState>();
@@ -273,10 +280,7 @@ function pair(
   const sbById = new Map<string, number>();
   for (const state of states) {
     buchholzById.set(state.id, computeBuchholz(state, stateById));
-    sbById.set(
-      state.id,
-      computeSonnebornBerger(state, normalisedGames, stateById),
-    );
+    sbById.set(state.id, computeSonnebornBerger(state, rounds, stateById));
   }
 
   // Burstein ranking: score DESC, Buchholz DESC, SB DESC, TPN ASC
@@ -314,7 +318,7 @@ function pair(
 
   let byeState: PlayerState | undefined;
   if (needsBye) {
-    byeState = assignBye(sorted, normalisedGames, bursteinByeTiebreak);
+    byeState = assignBye(sorted, rounds, bursteinByeTiebreak);
   }
 
   const byeId = byeState?.id;
@@ -400,12 +404,12 @@ function pair(
     return bursteinRankCompare(a, b, buchholzById, sbById);
   }
 
-  const pairings = allPairedTuples.map(([a, b]) =>
+  const games = allPairedTuples.map(([a, b]) =>
     allocateColor(a, b, BURSTEIN_COLOR_RULES, rankCompare),
   );
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         black: p.black,
         rule: 'burstein-article-5.2',
@@ -417,8 +421,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

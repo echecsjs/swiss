@@ -2,25 +2,25 @@ import { describe, expect, it } from 'vitest';
 
 import { pair } from '../dutch.js';
 
-import type { Game, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 
 const FOUR_PLAYERS: Player[] = [
-  { id: 'A', rating: 2000 },
-  { id: 'B', rating: 1900 },
-  { id: 'C', rating: 1800 },
-  { id: 'D', rating: 1700 },
+  { id: 'A', points: 0, rank: 1, rating: 2000 },
+  { id: 'B', points: 0, rank: 2, rating: 1900 },
+  { id: 'C', points: 0, rank: 3, rating: 1800 },
+  { id: 'D', points: 0, rank: 4, rating: 1700 },
 ];
 
 describe('dutch', () => {
   describe('round 1', () => {
     it('pairs top half vs bottom half within score group', () => {
       const result = pair(FOUR_PLAYERS, []);
-      expect(result.pairings).toHaveLength(2);
+      expect(result.games).toHaveLength(2);
       expect(result.byes).toHaveLength(0);
       // Top half: A, B; Bottom half: C, D
       // Each pairing must cross the boundary
       const topHalf = new Set(['A', 'B']);
-      for (const pairing of result.pairings) {
+      for (const pairing of result.games) {
         expect(topHalf.has(pairing.white) !== topHalf.has(pairing.black)).toBe(
           true,
         );
@@ -36,12 +36,15 @@ describe('dutch', () => {
 
   describe('invariants', () => {
     it('never pairs the same two players twice', () => {
-      const round1Games: Game[] = [
-        { black: 'C', result: 1, white: 'A' },
-        { black: 'D', result: 1, white: 'B' },
-      ];
-      const result = pair(FOUR_PLAYERS, [round1Games]);
-      const pairs = result.pairings.map((p) =>
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'C', result: 'white', white: 'A' },
+          { black: 'D', result: 'white', white: 'B' },
+        ],
+      };
+      const result = pair(FOUR_PLAYERS, [round1]);
+      const pairs = result.games.map((p) =>
         [p.white, p.black].toSorted().join('-'),
       );
       expect(pairs).not.toContain('A-C');
@@ -50,7 +53,7 @@ describe('dutch', () => {
 
     it('produces a complete pairing (all players appear exactly once)', () => {
       const result = pair(FOUR_PLAYERS, []);
-      const allIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      const allIds = result.games.flatMap((p) => [p.white, p.black]);
       expect(new Set(allIds).size).toBe(4);
       expect(allIds).toHaveLength(4);
     });

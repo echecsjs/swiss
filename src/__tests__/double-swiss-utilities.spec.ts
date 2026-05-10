@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { matchColorHistory, matchCount } from '../utilities.js';
 
-import type { Game } from '../types.js';
+import type { CompletedRound } from '../types.js';
 
 describe('matchCount', () => {
   it('returns 0 when player has no games', () => {
@@ -10,33 +10,44 @@ describe('matchCount', () => {
   });
 
   it('counts each unique real-opponent round as one match', () => {
-    const games: Game[][] = [
-      [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-      ],
-      [
-        { black: 'A', result: 1, white: 'B' },
-        { black: 'B', result: 0, white: 'A' },
-      ],
+    const rounds: CompletedRound[] = [
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+        ],
+      },
+      {
+        byes: [],
+        games: [
+          { black: 'A', result: 'white', white: 'B' },
+          { black: 'B', result: 'black', white: 'A' },
+        ],
+      },
     ];
-    expect(matchCount('A', games)).toBe(2);
+    expect(matchCount('A', rounds)).toBe(2);
   });
 
   it('does not count bye rounds', () => {
-    const games: Game[][] = [[{ black: 'A', result: 1, white: 'A' }]];
-    expect(matchCount('A', games)).toBe(0);
+    const rounds: CompletedRound[] = [
+      { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+    ];
+    expect(matchCount('A', rounds)).toBe(0);
   });
 
   it('does not count bye rounds even when mixed with real games', () => {
-    const games: Game[][] = [
-      [{ black: 'A', result: 1, white: 'A' }],
-      [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-      ],
+    const rounds: CompletedRound[] = [
+      { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+        ],
+      },
     ];
-    expect(matchCount('A', games)).toBe(1);
+    expect(matchCount('A', rounds)).toBe(1);
   });
 });
 
@@ -48,31 +59,40 @@ describe('matchColorHistory', () => {
   it('returns the color of the first game in each match round', () => {
     // Round 1: A plays white first (game 1), then black (game 2) — first game determines color
     // Round 2: A plays black first
-    const games: Game[][] = [
-      [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-      ],
-      [
-        { black: 'A', result: 1, white: 'B' },
-        { black: 'B', result: 0, white: 'A' },
-      ],
+    const rounds: CompletedRound[] = [
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+        ],
+      },
+      {
+        byes: [],
+        games: [
+          { black: 'A', result: 'white', white: 'B' },
+          { black: 'B', result: 'black', white: 'A' },
+        ],
+      },
     ];
-    const result = matchColorHistory('A', games);
+    const result = matchColorHistory('A', rounds);
     expect(result).toHaveLength(2);
     expect(result[0]).toBe('white'); // first game round 1: A is white
     expect(result[1]).toBe('black'); // first game round 2: A is black
   });
 
   it('skips bye rounds', () => {
-    const games: Game[][] = [
-      [{ black: 'A', result: 1, white: 'A' }],
-      [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-      ],
+    const rounds: CompletedRound[] = [
+      { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+        ],
+      },
     ];
-    const result = matchColorHistory('A', games);
+    const result = matchColorHistory('A', rounds);
     expect(result).toHaveLength(1);
     expect(result[0]).toBe('white');
   });
@@ -80,17 +100,23 @@ describe('matchColorHistory', () => {
   it('returns colors ordered by round index', () => {
     // Round 1 (index 0): A is white first game
     // Round 2 (index 1): A is black first game
-    const games: Game[][] = [
-      [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-      ],
-      [
-        { black: 'A', result: 1, white: 'B' },
-        { black: 'B', result: 0, white: 'A' },
-      ],
+    const rounds: CompletedRound[] = [
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+        ],
+      },
+      {
+        byes: [],
+        games: [
+          { black: 'A', result: 'white', white: 'B' },
+          { black: 'B', result: 'black', white: 'A' },
+        ],
+      },
     ];
-    const result = matchColorHistory('A', games);
+    const result = matchColorHistory('A', rounds);
     expect(result).toEqual(['white', 'black']); // round index 0: white, round index 1: black
   });
 });

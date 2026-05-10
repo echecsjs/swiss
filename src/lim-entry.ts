@@ -1,12 +1,12 @@
 export { pair } from './lim.js';
 export type {
   Bye,
+  CompletedRound,
   Game,
   PairOptions,
   Pairing,
-  PairingResult,
+  Pairings,
   Player,
-  Result,
   TraceCallback,
   TraceEvent,
 } from './types.js';

@@ -28,7 +28,7 @@ import {
 } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 import type { BracketContext, Criterion } from './weights.js';
 
@@ -256,18 +256,18 @@ const DUBOV_CRITERIA: Criterion[] = [
 
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
 
-  const totalRounds = games.length + 1;
+  const totalRounds = rounds.length + 1;
   const isLastRound = false; // We don't know total rounds ahead of time; conservative
-  const states = buildPlayerStates(players, games);
+  const states = buildPlayerStates(players, rounds);
 
   // Compute ARO for each player
   const aroById = new Map<string, number>();
@@ -301,7 +301,7 @@ function pair(
   // -------------------------------------------------------------------------
   let byeState: PlayerState | undefined;
   if (needsBye) {
-    byeState = assignBye(sorted, games, dubovByeTiebreak);
+    byeState = assignBye(sorted, rounds, dubovByeTiebreak);
   }
 
   const byeId = byeState?.id;
@@ -396,12 +396,12 @@ function pair(
   // -------------------------------------------------------------------------
   // Allocate colours
   // -------------------------------------------------------------------------
-  const pairings = allPairedTuples.map(([a, b]) =>
+  const games = allPairedTuples.map(([a, b]) =>
     allocateColor(a, b, DUBOV_COLOR_RULES, dubovRankCompare),
   );
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         black: p.black,
         rule: 'dubov-article-5.2',
@@ -413,8 +413,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

@@ -6,7 +6,7 @@ import {
 import { buildPlayerStates, matchColorHistory } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 
 /**
@@ -19,7 +19,7 @@ import type { PlayerState } from './utilities.js';
  * Then applies rules 4.3.1 through 4.3.5 in descending priority.
  */
 function makeAllocateDoubleColors(
-  games: Game[][],
+  rounds: CompletedRound[],
 ): (a: PlayerState, b: PlayerState) => { black: string; white: string } {
   return function allocateDoubleColors(
     a: PlayerState,
@@ -29,8 +29,8 @@ function makeAllocateDoubleColors(
     const hrpIsA = a.score > b.score || (a.score === b.score && a.tpn < b.tpn);
     const [hrp, opp] = hrpIsA ? [a, b] : [b, a];
 
-    const hrpHistory = matchColorHistory(hrp.id, games);
-    const oppHistory = matchColorHistory(opp.id, games);
+    const hrpHistory = matchColorHistory(hrp.id, rounds);
+    const oppHistory = matchColorHistory(opp.id, rounds);
 
     // Helper: give HRP white.
     const hrpWhite = (): { black: string; white: string } => ({
@@ -100,16 +100,16 @@ function makeAllocateDoubleColors(
  */
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
 
-  const states = buildPlayerStates(players, games);
+  const states = buildPlayerStates(players, rounds);
   const ranked = rankByScoreThenTPN(states);
   const byeState = assignLexicographicBye(ranked);
 
@@ -125,10 +125,10 @@ function pair(
   }
 
   const toBePaired = ranked.filter((s) => s.id !== byeId);
-  const pairings = pairAllBrackets(toBePaired, makeAllocateDoubleColors(games));
+  const games = pairAllBrackets(toBePaired, makeAllocateDoubleColors(rounds));
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         phase: 'main',
         playerA: p.white,
@@ -147,8 +147,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

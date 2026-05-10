@@ -16,7 +16,7 @@ import { pair as teamPair } from '../swiss-team.js';
 import dutchC5 from './fixtures/dutch_2025_C5.trf?raw';
 
 import type { TraceEvent } from '../trace.js';
-import type { Game, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 import type { Tournament } from '@echecs/trf';
 
 // ---------------------------------------------------------------------------
@@ -32,11 +32,13 @@ function edges(
 function toSwissPlayers(tournament: Tournament): Player[] {
   return tournament.players.map((p) => ({
     id: String(p.pairingNumber),
+    points: 0,
+    rank: p.pairingNumber,
     rating: p.rating,
   }));
 }
 
-function toSwissGames(tournament: Tournament): Game[][] {
+function toSwissRounds(tournament: Tournament): CompletedRound[] {
   let maxRound = 0;
   for (const player of tournament.players) {
     for (const result of player.results) {
@@ -46,27 +48,30 @@ function toSwissGames(tournament: Tournament): Game[][] {
     }
   }
 
-  const roundArrays: Game[][] = Array.from({ length: maxRound }, () => []);
+  const roundArrays: CompletedRound[] = Array.from(
+    { length: maxRound },
+    () => ({ byes: [], games: [] }),
+  );
 
   for (const player of tournament.players) {
     for (const result of player.results) {
       if (result.color !== 'w' || result.opponentId === null) {
         continue;
       }
-      let score: 0 | 0.5 | 1;
+      let gameResult: 'black' | 'draw' | 'white';
       switch (result.result) {
         case '1':
         case '+': {
-          score = 1;
+          gameResult = 'white';
           break;
         }
         case '0':
         case '-': {
-          score = 0;
+          gameResult = 'black';
           break;
         }
         case '=': {
-          score = 0.5;
+          gameResult = 'draw';
           break;
         }
         default: {
@@ -74,11 +79,11 @@ function toSwissGames(tournament: Tournament): Game[][] {
         }
       }
       const roundIndex = result.round - 1;
-      const roundGames = roundArrays[roundIndex];
-      if (roundGames !== undefined) {
-        roundGames.push({
+      const roundData = roundArrays[roundIndex];
+      if (roundData !== undefined) {
+        roundData.games.push({
           black: String(result.opponentId),
-          result: score,
+          result: gameResult,
           white: String(player.pairingNumber),
         });
       }
@@ -143,11 +148,11 @@ describe('dutch trace', () => {
   it('emits expected event types for C5 fixture', () => {
     const tournament = parse(dutchC5)!;
     const players = toSwissPlayers(tournament);
-    const allGames = toSwissGames(tournament);
-    const priorGames = allGames.slice(0, 2);
+    const allRounds = toSwissRounds(tournament);
+    const priorRounds = allRounds.slice(0, 2);
 
     const events: TraceEvent[] = [];
-    pair(players, priorGames, { trace: (event) => events.push(event) });
+    pair(players, priorRounds, { trace: (event) => events.push(event) });
 
     const types = new Set(events.map((event) => event.type));
 
@@ -161,12 +166,12 @@ describe('dutch trace', () => {
   it('produces the same pairings with and without trace', () => {
     const tournament = parse(dutchC5)!;
     const players = toSwissPlayers(tournament);
-    const allGames = toSwissGames(tournament);
-    const priorGames = allGames.slice(0, 2);
+    const allRounds = toSwissRounds(tournament);
+    const priorRounds = allRounds.slice(0, 2);
 
-    const withoutTrace = pair(players, priorGames);
+    const withoutTrace = pair(players, priorRounds);
     const events: TraceEvent[] = [];
-    const withTrace = pair(players, priorGames, {
+    const withTrace = pair(players, priorRounds, {
       trace: (event) => events.push(event),
     });
 
@@ -181,10 +186,10 @@ describe('dutch trace', () => {
 
 describe('trace smoke tests', () => {
   const players: Player[] = [
-    { id: '1', rating: 2000 },
-    { id: '2', rating: 1900 },
-    { id: '3', rating: 1800 },
-    { id: '4', rating: 1700 },
+    { id: '1', points: 0, rank: 1, rating: 2000 },
+    { id: '2', points: 0, rank: 2, rating: 1900 },
+    { id: '3', points: 0, rank: 3, rating: 1800 },
+    { id: '4', points: 0, rank: 4, rating: 1700 },
   ];
 
   it('dubov emits trace events', () => {
