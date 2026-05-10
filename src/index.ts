@@ -1,13 +1,12 @@
 export { pair } from './dutch.js';
 export type {
   Bye,
+  CompletedRound,
   Game,
-  GameKind,
   PairOptions,
   Pairing,
-  PairingResult,
+  Pairings,
   Player,
-  Result,
   TraceCallback,
   TraceEvent,
 } from './types.js';

@@ -2,12 +2,11 @@ type FloatKind = 'down' | 'up' | undefined;
 
 export type {
   Bye,
+  CompletedRound,
   Game,
-  GameKind,
   Pairing,
-  PairingResult,
+  Pairings,
   Player,
-  Result,
 } from '@echecs/tournament';
 
 export type { FloatKind };

@@ -3,7 +3,7 @@
  * Shared utilities for all FIDE Swiss pairing systems.
  * Provides a precomputed PlayerState struct and related helper functions.
  */
-import type { FloatKind, Game, Player } from './types.js';
+import type { CompletedRound, FloatKind, Game, Player } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -31,6 +31,23 @@ interface PlayerState {
 }
 
 // ---------------------------------------------------------------------------
+// scoreFor helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the score earned by `player` in a game.
+ * 1 for a win, 0.5 for a draw, 0 for a loss or no-result.
+ */
+function scoreFor(player: string, game: Game): number {
+  if (game.result === 'draw') return 0.5;
+  if (game.result === 'none') return 0;
+  return (game.result === 'white' && game.white === player) ||
+    (game.result === 'black' && game.black === player)
+    ? 1
+    : 0;
+}
+
+// ---------------------------------------------------------------------------
 // New precomputed PlayerState API
 // ---------------------------------------------------------------------------
 
@@ -38,32 +55,42 @@ interface PlayerState {
  * Builds all PlayerState objects from the player list and game history.
  * All per-player data is computed once and cached.
  */
-function buildPlayerStates(players: Player[], games: Game[][]): PlayerState[] {
-  const roundCount = games.length;
+function buildPlayerStates(
+  players: Player[],
+  rounds: CompletedRound[],
+): PlayerState[] {
+  const roundCount = rounds.length;
 
   // Precompute cumulative score table: cumulativeScore[roundIndex] maps
   // player id → score BEFORE that round.
   const cumulativeScore: Map<string, number>[] = [];
   const runningScoreMap = new Map<string, number>();
 
-  for (const round of games) {
+  for (const round of rounds) {
     cumulativeScore.push(new Map(runningScoreMap));
-    for (const game of round) {
-      if (game.black === '') {
-        // Bye: only white receives points
-        runningScoreMap.set(
-          game.white,
-          (runningScoreMap.get(game.white) ?? 0) + game.result,
-        );
-        continue;
-      }
+    // Byes
+    for (const bye of round.byes) {
+      // full and pairing byes award 1 point; half-bye awards 0.5; zero-bye awards 0
+      const byePoints =
+        bye.kind === 'full' || bye.kind === 'pairing'
+          ? 1
+          : bye.kind === 'half'
+            ? 0.5
+            : 0;
+      runningScoreMap.set(
+        bye.player,
+        (runningScoreMap.get(bye.player) ?? 0) + byePoints,
+      );
+    }
+    // Games
+    for (const game of round.games) {
       runningScoreMap.set(
         game.white,
-        (runningScoreMap.get(game.white) ?? 0) + game.result,
+        (runningScoreMap.get(game.white) ?? 0) + scoreFor(game.white, game),
       );
       runningScoreMap.set(
         game.black,
-        (runningScoreMap.get(game.black) ?? 0) + (1 - game.result),
+        (runningScoreMap.get(game.black) ?? 0) + scoreFor(game.black, game),
       );
     }
   }
@@ -79,8 +106,37 @@ function buildPlayerStates(players: Player[], games: Game[][]): PlayerState[] {
     const floatHistory: FloatKind[] = [];
 
     for (let roundIndex = 0; roundIndex < roundCount; roundIndex++) {
-      const round = games[roundIndex] as Game[];
-      const game = round.find((g) => g.white === id || g.black === id);
+      const round = rounds[roundIndex] as CompletedRound;
+
+      // Check for bye first
+      const bye = round.byes.find((b) => b.player === id);
+      if (bye !== undefined) {
+        // C++ eligibleForBye: player is ineligible when an unplayed match
+        // awards >= pointsForWin (1) OR is a pairing bye (participatedInPairing
+        // && opponent == self). Half-byes (0.5 pts) and zero-byes (0 pts) do
+        // NOT make a player ineligible for future byes.
+        const byePoints =
+          bye.kind === 'full' || bye.kind === 'pairing'
+            ? 1
+            : bye.kind === 'half'
+              ? 0.5
+              : 0;
+        if (byePoints >= 1) {
+          byeCount++;
+        }
+        score += byePoints;
+        colorHistory.push(undefined);
+        // C++ gameWasPlayed is false for all bye types, so byes count as
+        // unplayed rounds (same as forfeits). This affects the C9 criterion
+        // (minimize unplayed games of bye assignee).
+        unplayedRounds++;
+        // C++ getFloat: points > pointsForLoss → FLOAT_DOWN, else FLOAT_NONE.
+        // pointsForLoss is 0, so only byes awarding > 0 points get downfloat.
+        floatHistory.push(byePoints > 0 ? 'down' : undefined);
+        continue;
+      }
+
+      const game = round.games.find((g) => g.white === id || g.black === id);
 
       if (game === undefined) {
         colorHistory.push(undefined);
@@ -89,37 +145,16 @@ function buildPlayerStates(players: Player[], games: Game[][]): PlayerState[] {
         continue;
       }
 
-      // Bye sentinel: black === ''
-      if (game.black === '') {
-        // C++ eligibleForBye: player is ineligible when an unplayed match
-        // awards >= pointsForWin (1) OR is a pairing bye (participatedInPairing
-        // && opponent == self). Half-byes (0.5 pts) and zero-byes (0 pts) do
-        // NOT make a player ineligible for future byes.
-        if (game.result >= 1) {
-          byeCount++;
-        }
-        score += game.result;
-        colorHistory.push(undefined);
-        // C++ gameWasPlayed is false for all bye types, so byes count as
-        // unplayed rounds (same as forfeits). This affects the C9 criterion
-        // (minimize unplayed games of bye assignee).
-        unplayedRounds++;
-        // C++ getFloat: points > pointsForLoss → FLOAT_DOWN, else FLOAT_NONE.
-        // pointsForLoss is 0, so only byes awarding > 0 points get downfloat.
-        floatHistory.push(game.result > 0 ? 'down' : undefined);
-        continue;
-      }
-
       // Real game
       const isWhite = game.white === id;
 
       // Forfeit — game was not actually played, no color recorded
       // (matches bbpPairings: gameWasPlayed = false for +/- results)
-      const isForfeit =
-        game.kind === 'forfeit-win' || game.kind === 'forfeit-loss';
+      const isForfeit = game.forfeit !== undefined;
       colorHistory.push(isForfeit ? undefined : isWhite ? 'white' : 'black');
 
-      score += isWhite ? game.result : 1 - game.result;
+      const points = scoreFor(id, game);
+      score += points;
 
       // Forfeit — game was not actually played, opponent not recorded
       // (matches bbpPairings: forbiddenPairs only added when gameWasPlayed)
@@ -129,8 +164,7 @@ function buildPlayerStates(players: Player[], games: Game[][]): PlayerState[] {
         unplayedRounds++;
         // C++ eligibleForBye returns false when any unplayed match gives
         // points >= pointsForWin. A forfeit win gives 1 point = full win.
-        const pointsFromForfeit = isWhite ? game.result : 1 - game.result;
-        if (pointsFromForfeit >= 1) {
+        if (points >= 1) {
           byeCount++;
         }
       } else {
@@ -141,9 +175,12 @@ function buildPlayerStates(players: Player[], games: Game[][]): PlayerState[] {
       // Forfeit: bbpPairings treats unplayed games specially —
       // forfeit win (points > loss) = FLOAT_DOWN, otherwise FLOAT_NONE.
       if (isForfeit) {
+        // forfeit win: the player who won the forfeit floats down
+        // game.forfeit === 'black' means black forfeited, white wins
+        // game.forfeit === 'white' means white forfeited, black wins
         const wonForfeit =
-          (isWhite && game.kind === 'forfeit-win') ||
-          (!isWhite && game.kind === 'forfeit-loss');
+          (isWhite && game.forfeit === 'black') ||
+          (!isWhite && game.forfeit === 'white');
         floatHistory.push(wonForfeit ? 'down' : undefined);
       } else {
         const opponentId = isWhite ? game.black : game.white;
@@ -262,7 +299,7 @@ function scoreGroups(states: PlayerState[]): Map<number, PlayerState[]> {
  */
 function assignBye(
   states: PlayerState[],
-  _games: Game[][],
+  _rounds: CompletedRound[],
   tiebreak: (a: PlayerState, b: PlayerState) => number,
 ): PlayerState | undefined {
   if (states.length % 2 === 0) {
@@ -442,58 +479,39 @@ const FIDE_COLOR_RULES: ColorRule[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Game normalisation
-// ---------------------------------------------------------------------------
-
-/**
- * Normalise games so that the old `black === white` bye sentinel is converted
- * to the canonical `black === ''` sentinel expected by buildPlayerStates.
- */
-function normaliseGames(games: Game[][]): Game[][] {
-  return games.map((round) =>
-    round.map((g) => (g.black === g.white ? { ...g, black: '' } : g)),
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Legacy API — kept for backward compatibility with modules not yet migrated
-// to the PlayerState-based API. These will be removed in tasks 5–11.
+// to the PlayerState-based API.
 // ---------------------------------------------------------------------------
 
-function gamesForPlayer(player: string, games: Game[][]): Game[] {
-  return games.flat().filter((g) => g.white === player || g.black === player);
+function gamesForPlayer(player: string, rounds: CompletedRound[]): Game[] {
+  return rounds
+    .flatMap((r) => r.games)
+    .filter((g) => g.white === player || g.black === player);
 }
 
-function score(player: string, games: Game[][]): number {
+function score(player: string, rounds: CompletedRound[]): number {
   let sum = 0;
-  for (const g of gamesForPlayer(player, games)) {
-    // Skip byes (black === '' or black === white sentinel)
-    if (g.black === '' || g.black === g.white) continue;
-    sum += g.white === player ? g.result : 1 - g.result;
+  for (const g of gamesForPlayer(player, rounds)) {
+    sum += scoreFor(player, g);
   }
   return sum;
 }
 
-function byeScore(player: string, games: Game[][]): number {
-  return gamesForPlayer(player, games).filter((g) => g.black === g.white)
-    .length;
+function byeScore(player: string, rounds: CompletedRound[]): number {
+  return rounds.filter((r) => r.byes.some((b) => b.player === player)).length;
 }
 
-function colorHistory(player: string, games: Game[][]): Color[] {
+function colorHistory(player: string, rounds: CompletedRound[]): Color[] {
   const colors: Color[] = [];
-  for (const round of games) {
-    for (const g of round) {
-      if (g.black === g.white) {
-        continue;
-      }
-      if (g.white === player) {
-        colors.push('white');
-        break;
-      }
-      if (g.black === player) {
-        colors.push('black');
-        break;
-      }
+  for (const round of rounds) {
+    const game = round.games.find(
+      (g) => g.white === player || g.black === player,
+    );
+    if (game === undefined) continue;
+    if (game.white === player) {
+      colors.push('white');
+    } else {
+      colors.push('black');
     }
   }
   return colors;
@@ -503,9 +521,9 @@ function colorHistory(player: string, games: Game[][]): Color[] {
  * Returns the color difference: positive means player has played more black
  * than white (prefers white next), negative means the opposite.
  */
-function colorPreference(player: string, games: Game[][]): number {
+function colorPreference(player: string, rounds: CompletedRound[]): number {
   let diff = 0;
-  for (const color of colorHistory(player, games)) {
+  for (const color of colorHistory(player, rounds)) {
     diff += color === 'black' ? 1 : -1;
   }
   return diff;
@@ -517,11 +535,11 @@ function colorPreference(player: string, games: Game[][]): number {
  */
 function playerScoreGroups(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
 ): Map<number, Player[]> {
   const groups = new Map<number, Player[]>();
   for (const player of players) {
-    const s = score(player.id, games);
+    const s = score(player.id, rounds);
     const group = groups.get(s) ?? [];
     group.push(player);
     groups.set(s, group);
@@ -533,18 +551,13 @@ function playerScoreGroups(
  * Returns the number of matches (unique rounds with a real opponent) played.
  * Bye rounds are not counted.
  */
-function matchCount(player: string, games: Game[][]): number {
+function matchCount(player: string, rounds: CompletedRound[]): number {
   let count = 0;
-  for (const round of games) {
-    for (const g of round) {
-      if (g.black === g.white) {
-        continue;
-      }
-      if (g.white === player || g.black === player) {
-        count++;
-        break;
-      }
-    }
+  for (const round of rounds) {
+    const hasGame = round.games.some(
+      (g) => g.white === player || g.black === player,
+    );
+    if (hasGame) count++;
   }
   return count;
 }
@@ -554,22 +567,14 @@ function matchCount(player: string, games: Game[][]): number {
  * For each match (unique round with a real opponent), the color is determined
  * by the first game in that round. Bye rounds are excluded.
  */
-function matchColorHistory(player: string, games: Game[][]): Color[] {
+function matchColorHistory(player: string, rounds: CompletedRound[]): Color[] {
   const colors: Color[] = [];
-  for (const round of games) {
-    for (const g of round) {
-      if (g.black === g.white) {
-        continue;
-      }
-      if (g.white === player) {
-        colors.push('white');
-        break;
-      }
-      if (g.black === player) {
-        colors.push('black');
-        break;
-      }
-    }
+  for (const round of rounds) {
+    const game = round.games.find(
+      (g) => g.white === player || g.black === player,
+    );
+    if (game === undefined) continue;
+    colors.push(game.white === player ? 'white' : 'black');
   }
   return colors;
 }
@@ -577,9 +582,9 @@ function matchColorHistory(player: string, games: Game[][]): Color[] {
 /**
  * Returns true if players a and b have faced each other in any previous game.
  */
-function hasFaced(a: string, b: string, games: Game[][]): boolean {
-  return games
-    .flat()
+function hasFaced(a: string, b: string, rounds: CompletedRound[]): boolean {
+  return rounds
+    .flatMap((r) => r.games)
     .some(
       (g) =>
         (g.white === a && g.black === b) || (g.white === b && g.black === a),
@@ -593,9 +598,9 @@ function hasFaced(a: string, b: string, games: Game[][]): boolean {
 function assignColors(
   a: Player,
   b: Player,
-  games: Game[][],
+  rounds: CompletedRound[],
 ): { black: string; white: string } {
-  if (colorPreference(a.id, games) > 0) {
+  if (colorPreference(a.id, rounds) > 0) {
     return { black: b.id, white: a.id };
   }
   return { black: a.id, white: b.id };
@@ -605,9 +610,9 @@ function assignColors(
  * Returns players sorted by score descending, then rating descending.
  * This is the standard ranking used by all FIDE Swiss pairing systems.
  */
-function rankPlayers(players: Player[], games: Game[][]): Player[] {
+function rankPlayers(players: Player[], rounds: CompletedRound[]): Player[] {
   return [...players].toSorted((a, b) => {
-    const scoreDiff = score(b.id, games) - score(a.id, games);
+    const scoreDiff = score(b.id, rounds) - score(a.id, rounds);
     if (scoreDiff !== 0) {
       return scoreDiff;
     }
@@ -620,16 +625,16 @@ function rankPlayers(players: Player[], games: Game[][]): Player[] {
  * the player count is even. Prefers the lowest-ranked player who has not
  * already received a bye.
  *
- * @deprecated Use assignBye(states, games, tiebreak) instead.
+ * @deprecated Use assignBye(states, rounds, tiebreak) instead.
  */
 function assignByeLegacy(
   ranked: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
 ): Player | undefined {
   if (ranked.length % 2 === 0) {
     return undefined;
   }
-  const eligible = ranked.filter((p) => byeScore(p.id, games) === 0);
+  const eligible = ranked.filter((p) => byeScore(p.id, rounds) === 0);
   return eligible.at(-1) ?? ranked.at(-1);
 }
 
@@ -639,9 +644,9 @@ function assignByeLegacy(
  */
 function typeAColorPreference(
   player: string,
-  games: Game[][],
+  rounds: CompletedRound[],
 ): Color | undefined {
-  const history = matchColorHistory(player, games);
+  const history = matchColorHistory(player, rounds);
   const whites = history.filter((c) => c === 'white').length;
   const blacks = history.filter((c) => c === 'black').length;
   const cd = whites - blacks; // color difference
@@ -679,13 +684,16 @@ function isTopscorer(playerScore: number, totalRounds: number): boolean {
 
 /**
  * Returns count of rounds where player had no game at all (not even a bye).
- * A bye (g.black === g.white) counts as played.
+ * A bye counts as played.
  */
-function unplayedRounds(player: string, games: Game[][]): number {
+function unplayedRounds(player: string, rounds: CompletedRound[]): number {
   let count = 0;
-  for (const round of games) {
-    const hasGame = round.some((g) => g.white === player || g.black === player);
-    if (!hasGame) {
+  for (const round of rounds) {
+    const hasBye = round.byes.some((b) => b.player === player);
+    const hasGame = round.games.some(
+      (g) => g.white === player || g.black === player,
+    );
+    if (!hasBye && !hasGame) {
       count++;
     }
   }
@@ -698,26 +706,29 @@ function unplayedRounds(player: string, games: Game[][]): number {
  * 'up' = player floated up (lower score),
  * undefined = equal scores or no game that round.
  */
-function floatHistory(player: string, games: Game[][]): FloatKind[] {
+function floatHistory(player: string, rounds: CompletedRound[]): FloatKind[] {
   const result: FloatKind[] = [];
-  for (const [roundIndex, round] of games.entries()) {
-    const game = round.find((g) => g.white === player || g.black === player);
+  for (const [roundIndex, round] of rounds.entries()) {
+    // Check for bye
+    const bye = round.byes.find((b) => b.player === player);
+    if (bye !== undefined) {
+      result.push('down');
+      continue;
+    }
+
+    const game = round.games.find(
+      (g) => g.white === player || g.black === player,
+    );
 
     if (game === undefined) {
       result.push(undefined);
       continue;
     }
 
-    // Bye sentinel: g.black === g.white
-    if (game.black === game.white) {
-      result.push('down');
-      continue;
-    }
-
     const opponent = game.white === player ? game.black : game.white;
-    const previousGames = games.slice(0, roundIndex);
-    const playerScore = score(player, previousGames);
-    const opponentScore = score(opponent, previousGames);
+    const previousRounds = rounds.slice(0, roundIndex);
+    const playerScore = score(player, previousRounds);
+    const opponentScore = score(opponent, previousRounds);
 
     if (playerScore > opponentScore) {
       result.push('down');
@@ -746,7 +757,6 @@ export {
   isTopscorer,
   matchColorHistory,
   matchCount,
-  normaliseGames,
   playerScoreGroups,
   rankPlayers,
   ROUND_1_COLOR_RULE,

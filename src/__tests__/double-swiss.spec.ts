@@ -2,30 +2,30 @@ import { describe, expect, it } from 'vitest';
 
 import { pair } from '../double-swiss.js';
 
-import type { Game, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 
-/** Returns true if the given pairings contain a specific pair (order-insensitive). */
+/** Returns true if the given games contain a specific pair (order-insensitive). */
 function hasPair(
-  pairings: ReturnType<typeof pair>['pairings'],
+  games: ReturnType<typeof pair>['games'],
   a: string,
   b: string,
 ): boolean {
-  return pairings.some(
+  return games.some(
     (p) => (p.white === a && p.black === b) || (p.white === b && p.black === a),
   );
 }
 
 const FOUR_PLAYERS: Player[] = [
-  { id: 'A', rating: 2000 },
-  { id: 'B', rating: 1900 },
-  { id: 'C', rating: 1800 },
-  { id: 'D', rating: 1700 },
+  { id: 'A', points: 0, rank: 1, rating: 2000 },
+  { id: 'B', points: 0, rank: 2, rating: 1900 },
+  { id: 'C', points: 0, rank: 3, rating: 1800 },
+  { id: 'D', points: 0, rank: 4, rating: 1700 },
 ];
 
 const THREE_PLAYERS: Player[] = [
-  { id: 'A', rating: 2000 },
-  { id: 'B', rating: 1900 },
-  { id: 'C', rating: 1800 },
+  { id: 'A', points: 0, rank: 1, rating: 2000 },
+  { id: 'B', points: 0, rank: 2, rating: 1900 },
+  { id: 'C', points: 0, rank: 3, rating: 1800 },
 ];
 
 describe('doubleSwiss', () => {
@@ -43,12 +43,12 @@ describe('doubleSwiss', () => {
 
     it('produces correct number of pairings for even players', () => {
       const result = pair(FOUR_PLAYERS, []);
-      expect(result.pairings).toHaveLength(2);
+      expect(result.games).toHaveLength(2);
     });
 
     it('each player appears exactly once across all pairings', () => {
       const result = pair(FOUR_PLAYERS, []);
-      const allIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      const allIds = result.games.flatMap((p) => [p.white, p.black]);
       expect(new Set(allIds).size).toBe(4);
       expect(allIds).toHaveLength(4);
     });
@@ -68,51 +68,57 @@ describe('doubleSwiss', () => {
 
     it('prefers lowest-score player for bye', () => {
       const fivePlayers: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
-        { id: 'E', rating: 1600 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
+        { id: 'E', points: 0, rank: 5, rating: 1600 },
       ];
       // A and B each get 1 from draws; C and D each get 1 from draws; E=0
-      const round1Games: Game[] = [
-        { black: 'B', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'B' },
-        { black: 'D', result: 0.5, white: 'C' },
-        { black: 'C', result: 0.5, white: 'D' },
-      ];
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'B', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'B' },
+          { black: 'D', result: 'draw', white: 'C' },
+          { black: 'C', result: 'draw', white: 'D' },
+        ],
+      };
       // Scores: A=1, B=1, C=1, D=1, E=0
       // Only E has score 0 → E gets the bye
-      const result = pair(fivePlayers, [round1Games]);
+      const result = pair(fivePlayers, [round1]);
       expect(result.byes[0]?.player).toBe('E');
     });
 
     it('does not assign bye to player who already received one (C2 rule)', () => {
       // C already received a bye in round 1 — should not get another
-      const round1Games: Game[] = [
-        { black: 'C', result: 1, white: 'C' },
-        { black: 'C', result: 0.5, white: 'C' },
-      ];
-      const result = pair(THREE_PLAYERS, [round1Games]);
+      const round1: CompletedRound = {
+        byes: [{ kind: 'pairing', player: 'C' }],
+        games: [],
+      };
+      const result = pair(THREE_PLAYERS, [round1]);
       expect(result.byes[0]?.player).not.toBe('C');
     });
 
     it('prefers player with most matches played when scores tie', () => {
       // B=0 (1 match), E=0 (0 matches) → B gets bye (more matches)
       const fivePlayers: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
-        { id: 'E', rating: 1600 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
+        { id: 'E', points: 0, rank: 5, rating: 1600 },
       ];
-      const round1Games: Game[] = [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'B' },
-        { black: 'D', result: 0.5, white: 'C' },
-        { black: 'C', result: 0.5, white: 'D' },
-      ];
-      const result = pair(fivePlayers, [round1Games]);
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'B' },
+          { black: 'D', result: 'draw', white: 'C' },
+          { black: 'C', result: 'draw', white: 'D' },
+        ],
+      };
+      const result = pair(fivePlayers, [round1]);
       expect(result.byes[0]?.player).toBe('B');
     });
   });
@@ -121,93 +127,101 @@ describe('doubleSwiss', () => {
     it('pairs 4 players with no prior games in lexicographic order', () => {
       // Lexicographically first valid pairing: A-C and B-D
       const result = pair(FOUR_PLAYERS, []);
-      expect(hasPair(result.pairings, 'A', 'C')).toBe(true);
-      expect(hasPair(result.pairings, 'B', 'D')).toBe(true);
+      expect(hasPair(result.games, 'A', 'C')).toBe(true);
+      expect(hasPair(result.games, 'B', 'D')).toBe(true);
     });
 
     it('avoids rematches (C1) when finding lexicographic pairing', () => {
       // Prior pairings: A-C and B-D → lex-first is illegal → next lex: A-D and B-C
-      const round1Games: Game[] = [
-        { black: 'C', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'C' },
-        { black: 'D', result: 0.5, white: 'B' },
-        { black: 'B', result: 0.5, white: 'D' },
-      ];
-      const result = pair(FOUR_PLAYERS, [round1Games]);
-      expect(hasPair(result.pairings, 'A', 'D')).toBe(true);
-      expect(hasPair(result.pairings, 'B', 'C')).toBe(true);
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'C', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'C' },
+          { black: 'D', result: 'draw', white: 'B' },
+          { black: 'B', result: 'draw', white: 'D' },
+        ],
+      };
+      const result = pair(FOUR_PLAYERS, [round1]);
+      expect(hasPair(result.games, 'A', 'D')).toBe(true);
+      expect(hasPair(result.games, 'B', 'C')).toBe(true);
     });
 
     it('pairs 6 players all same score in lexicographic order', () => {
       const sixPlayers: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
-        { id: 'E', rating: 1600 },
-        { id: 'F', rating: 1500 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
+        { id: 'E', points: 0, rank: 5, rating: 1600 },
+        { id: 'F', points: 0, rank: 6, rating: 1500 },
       ];
       const result = pair(sixPlayers, []);
       expect(result.byes).toHaveLength(0);
-      expect(result.pairings).toHaveLength(3);
-      const allIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      expect(result.games).toHaveLength(3);
+      const allIds = result.games.flatMap((p) => [p.white, p.black]);
       expect(new Set(allIds).size).toBe(6);
       // Lexicographic-first pairing: {A-D, B-E, C-F}
-      expect(hasPair(result.pairings, 'A', 'D')).toBe(true);
-      expect(hasPair(result.pairings, 'B', 'E')).toBe(true);
-      expect(hasPair(result.pairings, 'C', 'F')).toBe(true);
+      expect(hasPair(result.games, 'A', 'D')).toBe(true);
+      expect(hasPair(result.games, 'B', 'E')).toBe(true);
+      expect(hasPair(result.games, 'C', 'F')).toBe(true);
     });
 
     it('pulls upfloater from next score group when top group is odd-sized', () => {
       const fivePlayers: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
-        { id: 'E', rating: 1600 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
+        { id: 'E', points: 0, rank: 5, rating: 1600 },
       ];
       // A has score 2 (2 wins), B=C=1 (1 draw each), D=E=0
-      const round1Games: Game[] = [
-        { black: 'E', result: 1, white: 'A' },
-        { black: 'A', result: 0, white: 'E' },
-        { black: 'C', result: 0.5, white: 'B' },
-        { black: 'B', result: 0.5, white: 'C' },
-      ];
-      const result = pair(fivePlayers, [round1Games]);
-      expect(result.pairings).toHaveLength(2);
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'E', result: 'white', white: 'A' },
+          { black: 'A', result: 'black', white: 'E' },
+          { black: 'C', result: 'draw', white: 'B' },
+          { black: 'B', result: 'draw', white: 'C' },
+        ],
+      };
+      const result = pair(fivePlayers, [round1]);
+      expect(result.games).toHaveLength(2);
       expect(result.byes).toHaveLength(1);
       // A must be paired with someone
-      const allIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      const allIds = result.games.flatMap((p) => [p.white, p.black]);
       expect(allIds).toContain('A');
     });
   });
 
   describe('match model', () => {
-    it('bye produces 1 entry in byes array with two game entries in input', () => {
-      const players = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
+    it('bye produces 1 entry in byes array', () => {
+      const players: Player[] = [
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
       ];
       const result = pair(players, []);
       expect(result.byes).toHaveLength(1);
-      expect(result.pairings).toHaveLength(1);
+      expect(result.games).toHaveLength(1);
     });
   });
 
   describe('invariants', () => {
     it('never pairs the same two players twice across rounds', () => {
       const result1 = pair(FOUR_PLAYERS, []);
-      const round1Games: Game[] = [];
-      for (const p of result1.pairings) {
-        round1Games.push(
-          { black: p.black, result: 0.5, white: p.white },
-          { black: p.white, result: 0.5, white: p.black },
-        );
-      }
-      const result2 = pair(FOUR_PLAYERS, [round1Games]);
-      for (const p2 of result2.pairings) {
-        const isRematch = result1.pairings.some(
+      const round1: CompletedRound = {
+        byes: result1.byes,
+        games: [
+          ...result1.games.flatMap((p) => [
+            { black: p.black, result: 'draw' as const, white: p.white },
+            { black: p.white, result: 'draw' as const, white: p.black },
+          ]),
+        ],
+      };
+      const result2 = pair(FOUR_PLAYERS, [round1]);
+      for (const p2 of result2.games) {
+        const isRematch = result1.games.some(
           (p1) =>
             (p1.white === p2.white && p1.black === p2.black) ||
             (p1.white === p2.black && p1.black === p2.white),
@@ -221,12 +235,12 @@ describe('doubleSwiss', () => {
       expect(result4.byes).toHaveLength(0);
 
       const sixPlayers: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
-        { id: 'E', rating: 1600 },
-        { id: 'F', rating: 1500 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
+        { id: 'E', points: 0, rank: 5, rating: 1600 },
+        { id: 'F', points: 0, rank: 6, rating: 1500 },
       ];
       const result6 = pair(sixPlayers, []);
       expect(result6.byes).toHaveLength(0);
@@ -234,14 +248,14 @@ describe('doubleSwiss', () => {
 
     it('all players appear exactly once per round (even count)', () => {
       const result = pair(FOUR_PLAYERS, []);
-      const allIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      const allIds = result.games.flatMap((p) => [p.white, p.black]);
       const playerIds = FOUR_PLAYERS.map((p) => p.id).toSorted();
       expect(allIds.toSorted()).toStrictEqual(playerIds);
     });
 
     it('all players appear exactly once per round (odd count)', () => {
       const result = pair(THREE_PLAYERS, []);
-      const pairedIds = result.pairings.flatMap((p) => [p.white, p.black]);
+      const pairedIds = result.games.flatMap((p) => [p.white, p.black]);
       const byeIds = result.byes.map((b) => b.player);
       const allIds = [...pairedIds, ...byeIds].toSorted();
       const playerIds = THREE_PLAYERS.map((p) => p.id).toSorted();
@@ -251,12 +265,12 @@ describe('doubleSwiss', () => {
     it('works with 2 players (minimum)', () => {
       const result = pair(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
         [],
       );
-      expect(result.pairings).toHaveLength(1);
+      expect(result.games).toHaveLength(1);
       expect(result.byes).toHaveLength(0);
     });
   });
@@ -264,36 +278,38 @@ describe('doubleSwiss', () => {
   describe('multi-round simulation', () => {
     it('can pair 3 rounds of a 6-player tournament', () => {
       const players: Player[] = [
-        { id: 'A', rating: 2100 },
-        { id: 'B', rating: 2000 },
-        { id: 'C', rating: 1900 },
-        { id: 'D', rating: 1800 },
-        { id: 'E', rating: 1700 },
-        { id: 'F', rating: 1600 },
+        { id: 'A', points: 0, rank: 1, rating: 2100 },
+        { id: 'B', points: 0, rank: 2, rating: 2000 },
+        { id: 'C', points: 0, rank: 3, rating: 1900 },
+        { id: 'D', points: 0, rank: 4, rating: 1800 },
+        { id: 'E', points: 0, rank: 5, rating: 1700 },
+        { id: 'F', points: 0, rank: 6, rating: 1600 },
       ];
-      let games: Game[][] = [];
+      let rounds: CompletedRound[] = [];
 
       for (let round = 1; round <= 3; round++) {
-        const result = pair(players, games);
-        expect(result.pairings).toHaveLength(3);
+        const result = pair(players, rounds);
+        expect(result.games).toHaveLength(3);
         expect(result.byes).toHaveLength(0);
 
         // Record games (all draws for simplicity)
-        const roundGames: Game[] = [];
-        for (const p of result.pairings) {
-          roundGames.push(
-            { black: p.black, result: 0.5, white: p.white },
-            { black: p.white, result: 0.5, white: p.black },
-          );
-        }
-        games = [...games, roundGames];
+        const roundCompleted: CompletedRound = {
+          byes: [],
+          games: [
+            ...result.games.flatMap((p) => [
+              { black: p.black, result: 'draw' as const, white: p.white },
+              { black: p.white, result: 'draw' as const, white: p.black },
+            ]),
+          ],
+        };
+        rounds = [...rounds, roundCompleted];
       }
 
       // Verify no rematches across all 3 rounds
       const allPairs = new Set<string>();
-      for (const roundGames of games) {
+      for (const roundData of rounds) {
         const pairs = new Set<string>();
-        for (const g of roundGames) {
+        for (const g of roundData.games) {
           const key = [g.white, g.black].toSorted().join('-');
           pairs.add(key);
         }
@@ -312,11 +328,11 @@ describe('doubleSwiss', () => {
       // HRP: A vs B score tied at 0, A has smaller TPN → A is HRP
       // HRP has odd TPN (1-based = 1) → A gets White
       const players: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
       ];
       const result = pair(players, []);
-      const pairing = result.pairings[0];
+      const pairing = result.games[0];
       expect(pairing).toBeDefined();
       expect(pairing!.white).toBe('A');
       expect(pairing!.black).toBe('B');
@@ -325,19 +341,19 @@ describe('doubleSwiss', () => {
     it('round 1 — HRP with even TPN (4.3.1): HRP gets Black', () => {
       // B received a bye in round 1 → B has higher score → B is HRP with even TPN (2) → B gets Black
       const players: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
       ];
-      const round1Games: Game[] = [
-        // B received a bye in round 1 — gives score but no match color history
-        { black: 'B', result: 1, white: 'B' },
-        { black: 'B', result: 0.5, white: 'B' },
-      ];
-      // Scores: A=0, B=1.5; matchColorHistory: A=[], B=[] (byes excluded)
+      // B received a bye in round 1 — gives score but no match color history
+      const round1: CompletedRound = {
+        byes: [{ kind: 'pairing', player: 'B' }],
+        games: [],
+      };
+      // Scores: A=0, B=1; matchColorHistory: A=[], B=[] (byes excluded)
       // Round 2: A vs B haven't faced each other → paired.
       // B (HRP) has even 1-based TPN (2) → B gets Black → A gets White.
-      const result = pair(players, [round1Games]);
-      const pairing = result.pairings[0];
+      const result = pair(players, [round1]);
+      const pairing = result.games[0];
       expect(pairing).toBeDefined();
       expect(pairing!.white).toBe('A');
       expect(pairing!.black).toBe('B');
@@ -346,31 +362,37 @@ describe('doubleSwiss', () => {
     it('fewer Whites (4.3.2): player with fewer Whites gets White', () => {
       // A has 2 white match colors, B has 0 → B gets White in round 3
       const players: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
       ];
-      const round1Games: Game[] = [
-        // Round 1: A(white) vs C — A match color = white
-        { black: 'C', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'C' },
-        // Round 1: D(white) vs B — B match color = black
-        { black: 'B', result: 0.5, white: 'D' },
-        { black: 'D', result: 0.5, white: 'B' },
-      ];
-      const round2Games: Game[] = [
-        // Round 2: A(white) vs D — A gets another white match color
-        { black: 'D', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'D' },
-        // Round 2: C(white) vs B — B gets another black match color
-        { black: 'B', result: 0.5, white: 'C' },
-        { black: 'C', result: 0.5, white: 'B' },
-      ];
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          // Round 1: A(white) vs C — A match color = white
+          { black: 'C', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'C' },
+          // Round 1: D(white) vs B — B match color = black
+          { black: 'B', result: 'draw', white: 'D' },
+          { black: 'D', result: 'draw', white: 'B' },
+        ],
+      };
+      const round2: CompletedRound = {
+        byes: [],
+        games: [
+          // Round 2: A(white) vs D — A gets another white match color
+          { black: 'D', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'D' },
+          // Round 2: C(white) vs B — B gets another black match color
+          { black: 'B', result: 'draw', white: 'C' },
+          { black: 'C', result: 'draw', white: 'B' },
+        ],
+      };
       // Round 3: only valid pairings avoid rematches: A-B and C-D
       // A has 2 whites, B has 0 whites → 4.3.2: B has fewer whites → B gets White
-      const result = pair(players, [round1Games, round2Games]);
-      const avsBpairing = result.pairings.find(
+      const result = pair(players, [round1, round2]);
+      const avsBpairing = result.games.find(
         (p) =>
           (p.white === 'A' && p.black === 'B') ||
           (p.white === 'B' && p.black === 'A'),
@@ -384,31 +406,37 @@ describe('doubleSwiss', () => {
       // A and B both had match-level colors [white, white] → no divergence → 4.3.4
       // A is HRP (smaller TPN), A last match = white → A gets Black
       const players: Player[] = [
-        { id: 'A', rating: 2000 },
-        { id: 'B', rating: 1900 },
-        { id: 'C', rating: 1800 },
-        { id: 'D', rating: 1700 },
+        { id: 'A', points: 0, rank: 1, rating: 2000 },
+        { id: 'B', points: 0, rank: 2, rating: 1900 },
+        { id: 'C', points: 0, rank: 3, rating: 1800 },
+        { id: 'D', points: 0, rank: 4, rating: 1700 },
       ];
-      const round1Games: Game[] = [
-        // Round 1: A(white) vs C — A gets white match color
-        { black: 'C', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'C' },
-        // Round 1: B(white) vs D — B gets white match color
-        { black: 'D', result: 0.5, white: 'B' },
-        { black: 'B', result: 0.5, white: 'D' },
-      ];
-      const round2Games: Game[] = [
-        // Round 2: A(white) vs D — A gets white match color again
-        { black: 'D', result: 0.5, white: 'A' },
-        { black: 'A', result: 0.5, white: 'D' },
-        // Round 2: B(white) vs C — B gets white match color again
-        { black: 'C', result: 0.5, white: 'B' },
-        { black: 'B', result: 0.5, white: 'C' },
-      ];
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          // Round 1: A(white) vs C — A gets white match color
+          { black: 'C', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'C' },
+          // Round 1: B(white) vs D — B gets white match color
+          { black: 'D', result: 'draw', white: 'B' },
+          { black: 'B', result: 'draw', white: 'D' },
+        ],
+      };
+      const round2: CompletedRound = {
+        byes: [],
+        games: [
+          // Round 2: A(white) vs D — A gets white match color again
+          { black: 'D', result: 'draw', white: 'A' },
+          { black: 'A', result: 'draw', white: 'D' },
+          // Round 2: B(white) vs C — B gets white match color again
+          { black: 'C', result: 'draw', white: 'B' },
+          { black: 'B', result: 'draw', white: 'C' },
+        ],
+      };
       // Round 3: A-B paired, matchColorHistory: A=['white','white'], B=['white','white']
       // 4.3.4: A is HRP, last match = white → A gets Black
-      const result = pair(players, [round1Games, round2Games]);
-      const avsBpairing = result.pairings.find(
+      const result = pair(players, [round1, round2]);
+      const avsBpairing = result.games.find(
         (p) =>
           (p.white === 'A' && p.black === 'B') ||
           (p.white === 'B' && p.black === 'A'),

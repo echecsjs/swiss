@@ -19,7 +19,7 @@ import issue15 from './fixtures/issue_15.trf?raw';
 import issue7 from './fixtures/issue_7.trf?raw';
 
 import type { TraceEvent } from '../trace.js';
-import type { Game, GameKind, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 import type { Tournament } from '@echecs/trf';
 
 // ---------------------------------------------------------------------------
@@ -29,11 +29,13 @@ import type { Tournament } from '@echecs/trf';
 function toSwissPlayers(tournament: Tournament): Player[] {
   return tournament.players.map((p) => ({
     id: String(p.pairingNumber),
+    points: 0,
+    rank: p.pairingNumber,
     rating: p.rating,
   }));
 }
 
-function toSwissGames(tournament: Tournament): Game[][] {
+function toSwissRounds(tournament: Tournament): CompletedRound[] {
   // Find max round
   let maxRound = 0;
   for (const player of tournament.players) {
@@ -44,31 +46,32 @@ function toSwissGames(tournament: Tournament): Game[][] {
     }
   }
 
-  // Build one array per round (1-indexed → 0-indexed)
-  const roundArrays: Game[][] = Array.from({ length: maxRound }, () => []);
+  // Build one CompletedRound per round (1-indexed → 0-indexed)
+  const roundArrays: CompletedRound[] = Array.from(
+    { length: maxRound },
+    () => ({ byes: [], games: [] }),
+  );
 
   for (const player of tournament.players) {
     for (const result of player.results) {
       const roundIndex = result.round - 1;
-      const roundGames = roundArrays[roundIndex];
-      if (roundGames === undefined) continue;
+      const roundData = roundArrays[roundIndex];
+      if (roundData === undefined) continue;
 
       // Bye results (no opponent)
       if (result.opponentId === null) {
-        const byeMap: Record<string, { kind: GameKind; result: 0 | 0.5 | 1 }> =
+        const byeKindMap: Record<string, 'full' | 'half' | 'pairing' | 'zero'> =
           {
-            F: { kind: 'full-bye', result: 1 },
-            H: { kind: 'half-bye', result: 0.5 },
-            U: { kind: 'pairing-bye', result: 1 },
-            Z: { kind: 'zero-bye', result: 0 },
+            F: 'full',
+            H: 'half',
+            U: 'pairing',
+            Z: 'zero',
           };
-        const bye = byeMap[result.result];
-        if (bye) {
-          roundGames.push({
-            black: '',
-            kind: bye.kind,
-            result: bye.result,
-            white: String(player.pairingNumber),
+        const byeKind = byeKindMap[result.result];
+        if (byeKind !== undefined) {
+          roundData.byes.push({
+            kind: byeKind,
+            player: String(player.pairingNumber),
           });
         }
         continue;
@@ -77,20 +80,31 @@ function toSwissGames(tournament: Tournament): Game[][] {
       // Regular games — only record from white's perspective
       if (result.color !== 'w') continue;
 
-      let score: 0 | 0.5 | 1;
+      let gameResult: 'black' | 'draw' | 'white';
+      let isForfeitWin = false;
+      let isForfeitLoss = false;
+
       switch (result.result) {
-        case '1':
-        case '+': {
-          score = 1;
+        case '1': {
+          gameResult = 'white';
           break;
         }
-        case '0':
+        case '+': {
+          gameResult = 'white';
+          isForfeitWin = true;
+          break;
+        }
+        case '0': {
+          gameResult = 'black';
+          break;
+        }
         case '-': {
-          score = 0;
+          gameResult = 'black';
+          isForfeitLoss = true;
           break;
         }
         case '=': {
-          score = 0.5;
+          gameResult = 'draw';
           break;
         }
         default: {
@@ -98,19 +112,28 @@ function toSwissGames(tournament: Tournament): Game[][] {
         }
       }
 
-      const game: Game = {
-        black: String(result.opponentId),
-        result: score,
-        white: String(player.pairingNumber),
-      };
+      const black = String(result.opponentId);
+      const white = String(player.pairingNumber);
 
-      if (result.result === '+') {
-        game.kind = 'forfeit-win';
-      } else if (result.result === '-') {
-        game.kind = 'forfeit-loss';
+      if (isForfeitWin) {
+        // white won, black forfeited
+        roundData.games.push({
+          black,
+          forfeit: 'black',
+          result: 'white',
+          white,
+        });
+      } else if (isForfeitLoss) {
+        // white lost, white forfeited
+        roundData.games.push({
+          black,
+          forfeit: 'white',
+          result: 'black',
+          white,
+        });
+      } else {
+        roundData.games.push({ black, result: gameResult, white });
       }
-
-      roundGames.push(game);
     }
   }
 
@@ -171,9 +194,9 @@ describe('dutch fixture: dutch_2025_C5', () => {
   const targetRound = 3;
   const excluded = preAssignedIds(tournament, targetRound);
   const players = toSwissPlayers(tournament).filter((p) => !excluded.has(p.id));
-  // games up to (not including) round 3 → first 2 rounds
-  const allGames = toSwissGames(tournament);
-  const gamesBefore = allGames.slice(0, targetRound - 1);
+  // rounds up to (not including) round 3 → first 2 rounds
+  const allRounds = toSwissRounds(tournament);
+  const roundsBefore = allRounds.slice(0, targetRound - 1);
 
   it('excludes pre-assigned players (P4 has Z-bye)', () => {
     expect(excluded.has('4')).toBe(true);
@@ -181,15 +204,15 @@ describe('dutch fixture: dutch_2025_C5', () => {
   });
 
   it('produces 2 pairings and 1 bye for round 3 (5 pairable players)', () => {
-    const result = pair(players, gamesBefore);
-    expect(result.pairings).toHaveLength(2);
+    const result = pair(players, roundsBefore);
+    expect(result.games).toHaveLength(2);
     expect(result.byes).toHaveLength(1);
   });
 
   it('produces the correct pairings for round 3 (FIDE Dutch C5): 1 vs 5, 3 vs 2, bye to 6', () => {
-    const result = pair(players, gamesBefore);
+    const result = pair(players, roundsBefore);
     const pairingSet = new Set(
-      result.pairings.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
     );
     expect(pairingSet).toContain('1-5');
     expect(pairingSet).toContain('2-3');
@@ -206,8 +229,8 @@ describe('dutch fixture: dutch_2025_C9', () => {
   const targetRound = 3;
   const excluded = preAssignedIds(tournament, targetRound);
   const players = toSwissPlayers(tournament).filter((p) => !excluded.has(p.id));
-  const allGames = toSwissGames(tournament);
-  const gamesBefore = allGames.slice(0, targetRound - 1);
+  const allRounds = toSwissRounds(tournament);
+  const roundsBefore = allRounds.slice(0, targetRound - 1);
 
   it('has no pre-assigned players for round 3', () => {
     expect(excluded.size).toBe(0);
@@ -215,15 +238,15 @@ describe('dutch fixture: dutch_2025_C9', () => {
   });
 
   it('produces 2 pairings and 1 bye for round 3 (5 pairable players)', () => {
-    const result = pair(players, gamesBefore);
-    expect(result.pairings).toHaveLength(2);
+    const result = pair(players, roundsBefore);
+    expect(result.games).toHaveLength(2);
     expect(result.byes).toHaveLength(1);
   });
 
   it('produces the correct pairings for round 3 (FIDE Dutch C9): 2 vs 1, 3 vs 5, bye to 4', () => {
-    const result = pair(players, gamesBefore);
+    const result = pair(players, roundsBefore);
     const pairingSet = new Set(
-      result.pairings.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
     );
     expect(pairingSet).toContain('1-2');
     expect(pairingSet).toContain('3-5');
@@ -240,22 +263,22 @@ describe('dutch fixture: issue_7', () => {
   const targetRound = 15;
   const excluded = preAssignedIds(tournament, targetRound);
   const players = toSwissPlayers(tournament).filter((p) => !excluded.has(p.id));
-  const allGames = toSwissGames(tournament);
-  const gamesBefore = allGames.slice(0, targetRound - 1);
+  const allRounds = toSwissRounds(tournament);
+  const roundsBefore = allRounds.slice(0, targetRound - 1);
 
   it('produces 30 pairings and no byes for round 15', () => {
-    const result = pair(players, gamesBefore);
-    expect(result.pairings).toHaveLength(30);
+    const result = pair(players, roundsBefore);
+    expect(result.games).toHaveLength(30);
     expect(result.byes).toHaveLength(0);
   });
 
   it('produces no rematches in round 15', () => {
-    const result = pair(players, gamesBefore);
+    const result = pair(players, roundsBefore);
     // Forfeit games are not considered prior opponents per FIDE/bbpPairings
-    const played = gamesBefore
-      .flat()
-      .filter((g) => g.kind !== 'forfeit-win' && g.kind !== 'forfeit-loss');
-    for (const pairing of result.pairings) {
+    const played = roundsBefore
+      .flatMap((r) => r.games)
+      .filter((g) => g.forfeit === undefined);
+    for (const pairing of result.games) {
       const alreadyFaced = played.some(
         (g) =>
           (g.white === pairing.white && g.black === pairing.black) ||
@@ -270,7 +293,7 @@ describe('dutch fixture: issue_7', () => {
 
   it('does not spin the bracket loop when unmatched players remain', () => {
     const events: TraceEvent[] = [];
-    pair(players, gamesBefore, { trace: (event) => events.push(event) });
+    pair(players, roundsBefore, { trace: (event) => events.push(event) });
 
     const bracketEnters = events.filter(
       (event) => event.type === 'dutch:bracket-enter',
@@ -280,7 +303,7 @@ describe('dutch fixture: issue_7', () => {
 
   it('finalizes each remainder pair individually with blossom re-runs', () => {
     const events: TraceEvent[] = [];
-    pair(players, gamesBefore, { trace: (event) => events.push(event) });
+    pair(players, roundsBefore, { trace: (event) => events.push(event) });
 
     const remainderFinalizations = events.filter(
       (event) =>
@@ -352,9 +375,9 @@ describe('dutch fixture: issue_7', () => {
       expected.map(([w, b]) => [w, b].toSorted().join('-')),
     );
 
-    const result = pair(players, gamesBefore);
+    const result = pair(players, roundsBefore);
     const actualSet = new Set(
-      result.pairings.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
     );
 
     expect(actualSet).toEqual(expectedSet);
@@ -371,39 +394,39 @@ describe('dutch fixture: issue_7', () => {
 // ---------------------------------------------------------------------------
 describe('dutch fixture: issue_15', () => {
   const tournament = loadFixture('issue_15');
-  const allGames = toSwissGames(tournament);
+  const allRounds = toSwissRounds(tournament);
 
   for (let round = 1; round <= 11; round++) {
     it(
       `pairs round ${round} without crashing (180 players)`,
       { timeout: 120_000 },
       () => {
-        // Games played before this round
-        const gamesBefore = allGames.slice(0, round - 1);
+        // Rounds played before this round
+        const roundsBefore = allRounds.slice(0, round - 1);
         const excluded = preAssignedIds(tournament, round);
         const players = toSwissPlayers(tournament).filter(
           (p) => !excluded.has(p.id),
         );
-        const result = pair(players, gamesBefore);
+        const result = pair(players, roundsBefore);
         // 180 players, even count → 90 pairings, 0 byes
-        expect(result.pairings).toHaveLength(90);
+        expect(result.games).toHaveLength(90);
         expect(result.byes).toHaveLength(0);
       },
     );
   }
 
   it('produces no rematches in round 11', { timeout: 120_000 }, () => {
-    const gamesBefore = allGames.slice(0, 10);
+    const roundsBefore = allRounds.slice(0, 10);
     const excluded = preAssignedIds(tournament, 11);
     const players = toSwissPlayers(tournament).filter(
       (p) => !excluded.has(p.id),
     );
-    const result = pair(players, gamesBefore);
+    const result = pair(players, roundsBefore);
     // Forfeit games are not considered prior opponents per FIDE/bbpPairings
-    const played = gamesBefore
-      .flat()
-      .filter((g) => g.kind !== 'forfeit-win' && g.kind !== 'forfeit-loss');
-    for (const pairing of result.pairings) {
+    const played = roundsBefore
+      .flatMap((r) => r.games)
+      .filter((g) => g.forfeit === undefined);
+    for (const pairing of result.games) {
       const alreadyFaced = played.some(
         (g) =>
           (g.white === pairing.white && g.black === pairing.black) ||

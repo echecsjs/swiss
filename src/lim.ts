@@ -29,12 +29,11 @@ import {
   allocateColor,
   assignBye,
   buildPlayerStates,
-  normaliseGames,
   scoreGroups,
 } from './utilities.js';
 
 import type { PairOptions } from './trace.js';
-import type { Game, PairingResult, Player } from './types.js';
+import type { CompletedRound, Pairings, Player } from './types.js';
 import type { PlayerState } from './utilities.js';
 import type { BracketContext, Criterion } from './weights.js';
 
@@ -263,18 +262,17 @@ const LIM_CRITERIA: Criterion[] = [
 
 function pair(
   players: Player[],
-  games: Game[][],
+  rounds: CompletedRound[],
   options?: PairOptions,
-): PairingResult {
+): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');
   }
 
   const trace = options?.trace;
 
-  const normalisedGames = normaliseGames(games);
-  const totalRounds = normalisedGames.length + 1;
-  const states = buildPlayerStates(players, normalisedGames);
+  const totalRounds = rounds.length + 1;
+  const states = buildPlayerStates(players, rounds);
 
   // Sort: score DESC, tpn ASC
   const sorted = [...states].toSorted((a, b) =>
@@ -292,7 +290,7 @@ function pair(
   // -------------------------------------------------------------------------
   let byeState: PlayerState | undefined;
   if (needsBye) {
-    byeState = assignBye(sorted, normalisedGames, limByeTiebreak);
+    byeState = assignBye(sorted, rounds, limByeTiebreak);
   }
 
   const byeId = byeState?.id;
@@ -340,7 +338,7 @@ function pair(
     totalRounds,
     tournament: {
       expectedRounds: totalRounds,
-      playedRounds: totalRounds - 1,
+      playedRounds: rounds.length,
     },
   };
 
@@ -375,12 +373,12 @@ function pair(
   // -------------------------------------------------------------------------
   // Allocate colours
   // -------------------------------------------------------------------------
-  const pairings = allPairedTuples.map(([a, b]) =>
+  const games = allPairedTuples.map(([a, b]) =>
     allocateColor(a, b, FIDE_COLOR_RULES, limRankCompare),
   );
 
   if (trace) {
-    for (const p of pairings) {
+    for (const p of games) {
       trace({
         black: p.black,
         rule: 'lim-article-5.2',
@@ -392,8 +390,8 @@ function pair(
   }
 
   return {
-    byes: byeId === undefined ? [] : [{ player: byeId }],
-    pairings,
+    byes: byeId === undefined ? [] : [{ kind: 'pairing', player: byeId }],
+    games,
   };
 }
 

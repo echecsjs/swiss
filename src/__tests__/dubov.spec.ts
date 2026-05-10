@@ -2,21 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { pair } from '../dubov.js';
 
-import type { Game, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 
 const FOUR_PLAYERS: Player[] = [
-  { id: 'A', rating: 2000 },
-  { id: 'B', rating: 1900 },
-  { id: 'C', rating: 1800 },
-  { id: 'D', rating: 1700 },
+  { id: 'A', points: 0, rank: 1, rating: 2000 },
+  { id: 'B', points: 0, rank: 2, rating: 1900 },
+  { id: 'C', points: 0, rank: 3, rating: 1800 },
+  { id: 'D', points: 0, rank: 4, rating: 1700 },
 ];
 
 describe('dubov', () => {
   describe('round 1', () => {
     it('pairs adjacent ranks: 1 vs 2, 3 vs 4', () => {
       const result = pair(FOUR_PLAYERS, []);
-      expect(result.pairings).toHaveLength(2);
-      const ids = result.pairings.map((p) =>
+      expect(result.games).toHaveLength(2);
+      const ids = result.games.map((p) =>
         [p.white, p.black].toSorted().join('-'),
       );
       expect(ids).toContain('A-B');
@@ -32,12 +32,15 @@ describe('dubov', () => {
 
   describe('invariants', () => {
     it('never pairs the same two players twice', () => {
-      const round1Games: Game[] = [
-        { black: 'B', result: 1, white: 'A' },
-        { black: 'D', result: 1, white: 'C' },
-      ];
-      const result = pair(FOUR_PLAYERS, [round1Games]);
-      const pairs = result.pairings.map((p) =>
+      const round1: CompletedRound = {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          { black: 'D', result: 'white', white: 'C' },
+        ],
+      };
+      const result = pair(FOUR_PLAYERS, [round1]);
+      const pairs = result.games.map((p) =>
         [p.white, p.black].toSorted().join('-'),
       );
       expect(pairs).not.toContain('A-B');

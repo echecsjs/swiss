@@ -7,27 +7,33 @@ import {
   scoreGroups,
 } from '../utilities.js';
 
-import type { Game, Player } from '../types.js';
+import type { CompletedRound, Player } from '../types.js';
 import type { PlayerState } from '../utilities.js';
 
 const PLAYERS: Player[] = [
-  { id: 'A', rating: 2000 },
-  { id: 'B', rating: 1900 },
-  { id: 'C', rating: 1800 },
-  { id: 'D', rating: 1700 },
+  { id: 'A', points: 0, rank: 1, rating: 2000 },
+  { id: 'B', points: 0, rank: 2, rating: 1900 },
+  { id: 'C', points: 0, rank: 3, rating: 1800 },
+  { id: 'D', points: 0, rank: 4, rating: 1700 },
 ];
 
 // Round 1: A(w) 1-0 B, C(w) 0-1 D
 // Round 2: C(w) 0.5-0.5 A, D(w) 0-1 B
-const GAMES: Game[][] = [
-  [
-    { black: 'B', result: 1, white: 'A' },
-    { black: 'D', result: 0, white: 'C' },
-  ],
-  [
-    { black: 'A', result: 0.5, white: 'C' },
-    { black: 'B', result: 0, white: 'D' },
-  ],
+const GAMES: CompletedRound[] = [
+  {
+    byes: [],
+    games: [
+      { black: 'B', result: 'white', white: 'A' },
+      { black: 'D', result: 'black', white: 'C' },
+    ],
+  },
+  {
+    byes: [],
+    games: [
+      { black: 'A', result: 'draw', white: 'C' },
+      { black: 'B', result: 'black', white: 'D' },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -73,7 +79,7 @@ describe('buildPlayerStates', () => {
     });
 
     it('computes B score as 1 (lost R1 as black, won R2 as black)', () => {
-      // B: R1 black, white(A) result=1 → B gets 1-1=0; R2 black, white(D) result=0 → B gets 1-0=1
+      // B: R1 black, white(A) result='white' → B gets 0; R2 black, white(D) result='black' → B gets 1
       const states = buildPlayerStates(PLAYERS, GAMES);
       const b = states.find((s) => s.id === 'B');
       expect(b?.score).toBe(1);
@@ -86,38 +92,47 @@ describe('buildPlayerStates', () => {
     });
 
     it('computes D score as 1 (won R1 as black, lost R2 as white)', () => {
-      // D: R1 black, white(C) result=0 → D gets 1-0=1; R2 white, result=0 → D gets 0
+      // D: R1 black, white(C) result='black' → D gets 1; R2 white, result='black' → D gets 0
       const states = buildPlayerStates(PLAYERS, GAMES);
       const d = states.find((s) => s.id === 'D');
       expect(d?.score).toBe(1);
     });
 
     it('returns 0 for player with no games', () => {
-      const states = buildPlayerStates([{ id: 'Z' }], []);
+      const states = buildPlayerStates([{ id: 'Z', points: 0, rank: 1 }], []);
       expect(states[0]?.score).toBe(0);
     });
 
     it('counts pairing-bye score (1 point)', () => {
-      const byeGames: Game[][] = [
-        [{ black: '', kind: 'pairing-bye', result: 1, white: 'A' }],
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
       ];
-      const states = buildPlayerStates([{ id: 'A' }], byeGames);
+      const states = buildPlayerStates(
+        [{ id: 'A', points: 0, rank: 1 }],
+        byeRounds,
+      );
       expect(states[0]?.score).toBe(1);
     });
 
     it('counts half-bye score (0.5 points)', () => {
-      const byeGames: Game[][] = [
-        [{ black: '', kind: 'half-bye', result: 0.5, white: 'A' }],
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'half', player: 'A' }], games: [] },
       ];
-      const states = buildPlayerStates([{ id: 'A' }], byeGames);
+      const states = buildPlayerStates(
+        [{ id: 'A', points: 0, rank: 1 }],
+        byeRounds,
+      );
       expect(states[0]?.score).toBe(0.5);
     });
 
     it('counts zero-bye score (0 points)', () => {
-      const byeGames: Game[][] = [
-        [{ black: '', kind: 'zero-bye', result: 0, white: 'A' }],
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'zero', player: 'A' }], games: [] },
       ];
-      const states = buildPlayerStates([{ id: 'A' }], byeGames);
+      const states = buildPlayerStates(
+        [{ id: 'A', points: 0, rank: 1 }],
+        byeRounds,
+      );
       expect(states[0]?.score).toBe(0);
     });
   });
@@ -129,22 +144,32 @@ describe('buildPlayerStates', () => {
       expect(a?.opponents).toEqual(new Set(['B', 'C']));
     });
 
-    it('does not include bye sentinel as opponent', () => {
-      const byeGames: Game[][] = [[{ black: '', result: 1, white: 'A' }]];
-      const states = buildPlayerStates([{ id: 'A' }], byeGames);
+    it('does not include bye as opponent', () => {
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      ];
+      const states = buildPlayerStates(
+        [{ id: 'A', points: 0, rank: 1 }],
+        byeRounds,
+      );
       expect(states[0]?.opponents.size).toBe(0);
     });
 
     it('does not include forfeit opponent', () => {
-      const games: Game[][] = [
-        [{ black: 'B', kind: 'forfeit-win', result: 1, white: 'A' }],
+      const rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [
+            { black: 'B', forfeit: 'black', result: 'white', white: 'A' },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        games,
+        rounds,
       );
       expect(states.find((s) => s.id === 'A')?.opponents.size).toBe(0);
       expect(states.find((s) => s.id === 'B')?.opponents.size).toBe(0);
@@ -165,45 +190,56 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns undefined for rounds where player has no game', () => {
-      const partialGames: Game[][] = [
-        [{ black: 'B', result: 1, white: 'A' }],
-        [{ black: 'D', result: 0, white: 'C' }], // A absent
+      const partialRounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [{ black: 'B', result: 'white', white: 'A' }],
+        },
+        {
+          byes: [],
+          games: [{ black: 'D', result: 'black', white: 'C' }], // A absent
+        },
       ];
-      const states = buildPlayerStates(PLAYERS, partialGames);
+      const states = buildPlayerStates(PLAYERS, partialRounds);
       const a = states.find((s) => s.id === 'A');
       expect(a?.colorHistory).toEqual(['white', undefined]);
     });
 
     it('returns undefined for bye rounds', () => {
-      const byeGames: Game[][] = [[{ black: '', result: 1, white: 'A' }]];
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        byeGames,
+        byeRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.colorHistory).toEqual([undefined]);
     });
 
     it('returns undefined for forfeit-win rounds', () => {
-      const forfeitGames: Game[][] = [
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-win',
-            result: 1,
-            white: 'A',
-          },
-        ],
+      const forfeitRounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'black',
+              result: 'white',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        forfeitGames,
+        forfeitRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.colorHistory).toEqual([undefined]);
@@ -212,22 +248,25 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns undefined for forfeit-loss rounds', () => {
-      const forfeitGames: Game[][] = [
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-loss',
-            result: 0,
-            white: 'A',
-          },
-        ],
+      const forfeitRounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'white',
+              result: 'black',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        forfeitGames,
+        forfeitRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.colorHistory).toEqual([undefined]);
@@ -260,7 +299,7 @@ describe('buildPlayerStates', () => {
 
   describe('preferenceStrength', () => {
     it('returns "none" for player with no color history', () => {
-      const states = buildPlayerStates([{ id: 'Z' }], []);
+      const states = buildPlayerStates([{ id: 'Z', points: 0, rank: 1 }], []);
       expect(states[0]?.preferenceStrength).toBe('none');
     });
 
@@ -284,29 +323,31 @@ describe('buildPlayerStates', () => {
 
     it('returns "absolute" when last two non-undefined color entries are the same', () => {
       // A plays white in R1 and R2: last two = [white, white]
-      const gamesWW: Game[][] = [
-        [{ black: 'B', result: 1, white: 'A' }],
-        [{ black: 'B', result: 1, white: 'A' }],
+      const rounds: CompletedRound[] = [
+        { byes: [], games: [{ black: 'B', result: 'white', white: 'A' }] },
+        { byes: [], games: [{ black: 'B', result: 'white', white: 'A' }] },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        gamesWW,
+        rounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.preferenceStrength).toBe('absolute');
     });
 
     it('returns "strong" when |colorDiff|===1', () => {
-      const oneWhiteGames: Game[][] = [[{ black: 'B', result: 1, white: 'A' }]];
+      const rounds: CompletedRound[] = [
+        { byes: [], games: [{ black: 'B', result: 'white', white: 'A' }] },
+      ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        oneWhiteGames,
+        rounds,
       );
       const a = states.find((s) => s.id === 'A');
       // colorDiff = 1-0 = 1, |colorDiff|===1 → strong
@@ -314,15 +355,20 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns "none" when only game was a forfeit', () => {
-      const games: Game[][] = [
-        [{ black: 'B', kind: 'forfeit-win', result: 1, white: 'A' }],
+      const rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [
+            { black: 'B', forfeit: 'black', result: 'white', white: 'A' },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        games,
+        rounds,
       );
       expect(states.find((s) => s.id === 'A')?.preferenceStrength).toBe('none');
     });
@@ -330,7 +376,7 @@ describe('buildPlayerStates', () => {
 
   describe('preferredColor', () => {
     it('returns undefined for player with no history', () => {
-      const states = buildPlayerStates([{ id: 'Z' }], []);
+      const states = buildPlayerStates([{ id: 'Z', points: 0, rank: 1 }], []);
       expect(states[0]?.preferredColor).toBeUndefined();
     });
 
@@ -354,15 +400,20 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns undefined when only game was a forfeit', () => {
-      const games: Game[][] = [
-        [{ black: 'B', kind: 'forfeit-win', result: 1, white: 'A' }],
+      const rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [
+            { black: 'B', forfeit: 'black', result: 'white', white: 'A' },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        games,
+        rounds,
       );
       expect(states.find((s) => s.id === 'A')?.preferredColor).toBeUndefined();
     });
@@ -376,13 +427,15 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns 1 when player received one bye', () => {
-      const byeGames: Game[][] = [[{ black: '', result: 1, white: 'A' }]];
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        byeGames,
+        byeRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.byeCount).toBe(1);
@@ -397,23 +450,28 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns 1 when player has no game in one round', () => {
-      const partialGames: Game[][] = [
-        [{ black: 'B', result: 1, white: 'A' }],
-        [{ black: 'D', result: 0, white: 'C' }], // A absent
+      const partialRounds: CompletedRound[] = [
+        { byes: [], games: [{ black: 'B', result: 'white', white: 'A' }] },
+        {
+          byes: [],
+          games: [{ black: 'D', result: 'black', white: 'C' }], // A absent
+        },
       ];
-      const states = buildPlayerStates(PLAYERS, partialGames);
+      const states = buildPlayerStates(PLAYERS, partialRounds);
       const a = states.find((s) => s.id === 'A');
       expect(a?.unplayedRounds).toBe(1);
     });
 
     it('counts bye rounds as unplayed (C++ gameWasPlayed=false for byes)', () => {
-      const byeGames: Game[][] = [[{ black: '', result: 1, white: 'A' }]];
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        byeGames,
+        byeRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.unplayedRounds).toBe(1);
@@ -456,23 +514,28 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns undefined for rounds with no game', () => {
-      const partialGames: Game[][] = [
-        [{ black: 'B', result: 1, white: 'A' }],
-        [{ black: 'D', result: 0, white: 'C' }], // A absent
+      const partialRounds: CompletedRound[] = [
+        { byes: [], games: [{ black: 'B', result: 'white', white: 'A' }] },
+        {
+          byes: [],
+          games: [{ black: 'D', result: 'black', white: 'C' }], // A absent
+        },
       ];
-      const states = buildPlayerStates(PLAYERS, partialGames);
+      const states = buildPlayerStates(PLAYERS, partialRounds);
       const a = states.find((s) => s.id === 'A');
       expect(a?.floatHistory[1]).toBeUndefined();
     });
 
     it('returns "down" for bye rounds', () => {
-      const byeGames: Game[][] = [[{ black: '', result: 1, white: 'A' }]];
+      const byeRounds: CompletedRound[] = [
+        { byes: [{ kind: 'pairing', player: 'A' }], games: [] },
+      ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        byeGames,
+        byeRounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.floatHistory[0]).toBe('down');
@@ -482,28 +545,32 @@ describe('buildPlayerStates', () => {
       // Player A (score 0) beats B (score 1) by forfeit.
       // bbpPairings: gameWasPlayed=false, points > pointsForLoss → FLOAT_DOWN.
       // Without the fix, score comparison would say A floated UP (0 < 1).
-      const r1Games: Game[][] = [
-        [
-          { black: 'B', result: 0, white: 'A' }, // A loses R1 → A=0, B=1
-        ],
+      const r1Rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [{ black: 'B', result: 'black', white: 'A' }], // A loses R1 → A=0, B=1
+        },
       ];
-      const r2Games: Game[][] = [
-        ...r1Games,
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-win',
-            result: 1,
-            white: 'A',
-          },
-        ],
+      const r2Rounds: CompletedRound[] = [
+        ...r1Rounds,
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'black',
+              result: 'white',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        r2Games,
+        r2Rounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.floatHistory[1]).toBe('down');
@@ -513,56 +580,64 @@ describe('buildPlayerStates', () => {
       // Player A (score 1) loses to B (score 0) by forfeit.
       // bbpPairings: gameWasPlayed=false, points = pointsForLoss → FLOAT_NONE.
       // Without the fix, score comparison would say A floated DOWN (1 > 0).
-      const r1Games: Game[][] = [
-        [
-          { black: 'B', result: 1, white: 'A' }, // A wins R1 → A=1, B=0
-        ],
+      const r1Rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [{ black: 'B', result: 'white', white: 'A' }], // A wins R1 → A=1, B=0
+        },
       ];
-      const r2Games: Game[][] = [
-        ...r1Games,
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-loss',
-            result: 0,
-            white: 'A',
-          },
-        ],
+      const r2Rounds: CompletedRound[] = [
+        ...r1Rounds,
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'white',
+              result: 'black',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        r2Games,
+        r2Rounds,
       );
       const a = states.find((s) => s.id === 'A');
       expect(a?.floatHistory[1]).toBeUndefined();
     });
 
     it('returns undefined for the loser in a forfeit-win game (black side)', () => {
-      const r1Games: Game[][] = [
-        [
-          { black: 'B', result: 0, white: 'A' }, // A loses R1 → A=0, B=1
-        ],
+      const r1Rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [{ black: 'B', result: 'black', white: 'A' }], // A loses R1 → A=0, B=1
+        },
       ];
-      const r2Games: Game[][] = [
-        ...r1Games,
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-win',
-            result: 1,
-            white: 'A',
-          },
-        ],
+      const r2Rounds: CompletedRound[] = [
+        ...r1Rounds,
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'black',
+              result: 'white',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        r2Games,
+        r2Rounds,
       );
       const b = states.find((s) => s.id === 'B');
       // B is the loser (black side of forfeit-win = white won)
@@ -570,28 +645,32 @@ describe('buildPlayerStates', () => {
     });
 
     it('returns "down" for the winner in a forfeit-loss game (black side)', () => {
-      const r1Games: Game[][] = [
-        [
-          { black: 'B', result: 1, white: 'A' }, // A wins R1 → A=1, B=0
-        ],
+      const r1Rounds: CompletedRound[] = [
+        {
+          byes: [],
+          games: [{ black: 'B', result: 'white', white: 'A' }], // A wins R1 → A=1, B=0
+        },
       ];
-      const r2Games: Game[][] = [
-        ...r1Games,
-        [
-          {
-            black: 'B',
-            kind: 'forfeit-loss',
-            result: 0,
-            white: 'A',
-          },
-        ],
+      const r2Rounds: CompletedRound[] = [
+        ...r1Rounds,
+        {
+          byes: [],
+          games: [
+            {
+              black: 'B',
+              forfeit: 'white',
+              result: 'black',
+              white: 'A',
+            },
+          ],
+        },
       ];
       const states = buildPlayerStates(
         [
-          { id: 'A', rating: 2000 },
-          { id: 'B', rating: 1900 },
+          { id: 'A', points: 0, rank: 1, rating: 2000 },
+          { id: 'B', points: 0, rank: 2, rating: 1900 },
         ],
-        r2Games,
+        r2Rounds,
       );
       const b = states.find((s) => s.id === 'B');
       // B is the winner (black side of forfeit-loss = white lost)
@@ -648,66 +727,72 @@ describe('assignBye', () => {
 
   it('returns a player when count is odd', () => {
     const oddPlayers = PLAYERS.slice(0, 3);
-    const oddGames: Game[][] = [
-      [
-        { black: 'B', result: 1, white: 'A' },
-        // C has no opponent in R1
-      ],
+    const oddRounds: CompletedRound[] = [
+      {
+        byes: [],
+        games: [
+          { black: 'B', result: 'white', white: 'A' },
+          // C has no opponent in R1
+        ],
+      },
     ];
-    const states = buildPlayerStates(oddPlayers, oddGames);
-    const result = assignBye(states, oddGames, tiebreakByTpnAsc);
+    const states = buildPlayerStates(oddPlayers, oddRounds);
+    const result = assignBye(states, oddRounds, tiebreakByTpnAsc);
     expect(result).toBeDefined();
   });
 
   it('excludes players who already have a bye', () => {
-    const threePlayers = [
-      { id: 'A', rating: 2000 },
-      { id: 'B', rating: 1900 },
-      { id: 'C', rating: 1800 },
+    const threePlayers: Player[] = [
+      { id: 'A', points: 0, rank: 1, rating: 2000 },
+      { id: 'B', points: 0, rank: 2, rating: 1900 },
+      { id: 'C', points: 0, rank: 3, rating: 1800 },
     ];
     // A already received a bye in R1
-    const gamesWithBye: Game[][] = [
-      [
-        { black: '', result: 1, white: 'A' },
-        { black: 'C', result: 1, white: 'B' },
-      ],
+    const roundsWithBye: CompletedRound[] = [
+      {
+        byes: [{ kind: 'pairing', player: 'A' }],
+        games: [{ black: 'C', result: 'white', white: 'B' }],
+      },
     ];
-    const states = buildPlayerStates(threePlayers, gamesWithBye);
-    const result = assignBye(states, gamesWithBye, tiebreakByTpnAsc);
+    const states = buildPlayerStates(threePlayers, roundsWithBye);
+    const result = assignBye(states, roundsWithBye, tiebreakByTpnAsc);
     // A has byeCount=1, so should not be selected if B or C are eligible
     expect(result?.id).not.toBe('A');
   });
 
   it('uses tiebreak comparator when multiple lowest-score players tied', () => {
-    const threePlayers = [
-      { id: 'A', rating: 2000 },
-      { id: 'B', rating: 1900 },
-      { id: 'C', rating: 1800 },
+    const threePlayers: Player[] = [
+      { id: 'A', points: 0, rank: 1, rating: 2000 },
+      { id: 'B', points: 0, rank: 2, rating: 1900 },
+      { id: 'C', points: 0, rank: 3, rating: 1800 },
     ];
-    const noGames: Game[][] = [];
-    const states = buildPlayerStates(threePlayers, noGames);
+    const noRounds: CompletedRound[] = [];
+    const states = buildPlayerStates(threePlayers, noRounds);
     // All score 0; tiebreak by TPN descending → highest TPN (C=3) first → gets bye
-    const result = assignBye(states, noGames, tiebreakByTpnDesc);
+    const result = assignBye(states, noRounds, tiebreakByTpnDesc);
     expect(result?.id).toBe('C');
   });
 
   it('falls back to all players if none have byeCount===0', () => {
-    const threePlayers = [
-      { id: 'A', rating: 2000 },
-      { id: 'B', rating: 1900 },
-      { id: 'C', rating: 1800 },
+    const threePlayers: Player[] = [
+      { id: 'A', points: 0, rank: 1, rating: 2000 },
+      { id: 'B', points: 0, rank: 2, rating: 1900 },
+      { id: 'C', points: 0, rank: 3, rating: 1800 },
     ];
     // All players had byes
-    const allByeGames: Game[][] = [
-      [
-        { black: '', result: 1, white: 'A' },
-        { black: '', result: 1, white: 'B' },
-        { black: '', result: 1, white: 'C' },
-      ],
+    const allByeRounds: CompletedRound[] = [
+      {
+        byes: [
+          { kind: 'pairing', player: 'A' },
+          { kind: 'pairing', player: 'B' },
+          { kind: 'pairing', player: 'C' },
+        ],
+        games: [],
+      },
     ];
-    const states = buildPlayerStates(threePlayers, allByeGames);
+    const states = buildPlayerStates(threePlayers, allByeRounds);
     // All have byeCount=1, so fallback to all players
-    const result = assignBye(states, allByeGames, tiebreakByTpnAsc);
+    const result = assignBye(states, allByeRounds, tiebreakByTpnAsc);
     expect(result).toBeDefined();
   });
 });
