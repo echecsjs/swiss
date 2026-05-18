@@ -10,7 +10,7 @@ importers:
     devDependencies:
       '@echecs/tournament':
         specifier: ^3.1.0
-        version: 3.1.0
+        version: 3.1.1
       '@echecs/trf':
         specifier: ^3.1.1
         version: 3.4.0
@@ -113,8 +113,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@echecs/tournament@3.1.0':
-    resolution: {integrity: sha512-eXc0BMjpimolwpcPnuzEClyFZ90TnN2nLEJLJ7UCr4oFCstjI2lUbABnLE7HsKUYg+j7QadgtTR2J+wcflDlwg==}
+  '@echecs/tournament@3.1.1':
+    resolution: {integrity: sha512-EIXTR1lqq5umL7ZV849brscdAYb02yS8vZ1WtK1gsfK5Yt/IwGEvINKgCHBbvIP6KzalTBnJVQLmNAp61QqzFg==}
     engines: {node: '>=22'}
 
   '@echecs/trf@3.4.0':
@@ -2206,7 +2206,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@echecs/tournament@3.1.0': {}
+  '@echecs/tournament@3.1.1': {}
 
   '@echecs/trf@3.4.0': {}
 
