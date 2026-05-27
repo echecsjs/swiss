@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.0.0] - 2026-05-27
+
+### Changed
+
+- **BREAKING:** `PairOptions` removed. Use `PairingOptions` from
+  `@echecs/tournament` instead. The field names (`trace`, `expectedRounds`) are
+  unchanged.
+- `TraceCallback` is now re-exported from `@echecs/tournament`.
+- Requires `@echecs/tournament` ^3.3.0.
+
 ## [3.1.3] - 2026-05-04
 
 ### Fixed

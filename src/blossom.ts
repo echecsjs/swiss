@@ -80,7 +80,7 @@
 
 import { DynamicUint } from './dynamic-uint.js';
 
-import type { TraceCallback } from './trace.js';
+import type { TraceCallback } from '@echecs/tournament';
 
 function maxWeightMatching(
   edges: [number, number, DynamicUint][],

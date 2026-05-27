@@ -101,7 +101,7 @@ describe('blossom trace', () => {
   it('emits stage-start and complete events', () => {
     const events: TraceEvent[] = [];
     maxWeightMatching(edges([0, 1, 10], [1, 2, 11]), false, (event) =>
-      events.push(event),
+      events.push(event as unknown as TraceEvent),
     );
 
     const types = events.map((event) => event.type);
@@ -125,7 +125,7 @@ describe('blossom trace', () => {
     maxWeightMatching(
       edges([0, 1, 10], [1, 2, 10], [2, 0, 10], [0, 3, 1]),
       true,
-      (event) => events.push(event),
+      (event) => events.push(event as unknown as TraceEvent),
     );
 
     expect(events.some((event) => event.type === 'blossom:formed')).toBe(true);
@@ -152,7 +152,9 @@ describe('dutch trace', () => {
     const priorRounds = allRounds.slice(0, 2);
 
     const events: TraceEvent[] = [];
-    pair(players, priorRounds, { trace: (event) => events.push(event) });
+    pair(players, priorRounds, {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
 
     const types = new Set(events.map((event) => event.type));
 
@@ -172,7 +174,7 @@ describe('dutch trace', () => {
     const withoutTrace = pair(players, priorRounds);
     const events: TraceEvent[] = [];
     const withTrace = pair(players, priorRounds, {
-      trace: (event) => events.push(event),
+      trace: (event) => events.push(event as unknown as TraceEvent),
     });
 
     expect(withTrace).toEqual(withoutTrace);
@@ -194,7 +196,9 @@ describe('trace smoke tests', () => {
 
   it('dubov emits trace events', () => {
     const events: TraceEvent[] = [];
-    dubovPair(players, [], { trace: (event) => events.push(event) });
+    dubovPair(players, [], {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
     expect(events.length).toBeGreaterThan(0);
     expect(
       events.some((event) => event.type === 'pairing:blossom-invoked'),
@@ -203,7 +207,9 @@ describe('trace smoke tests', () => {
 
   it('burstein emits trace events', () => {
     const events: TraceEvent[] = [];
-    bursteinPair(players, [], { trace: (event) => events.push(event) });
+    bursteinPair(players, [], {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
     expect(events.length).toBeGreaterThan(0);
     expect(
       events.some((event) => event.type === 'pairing:blossom-invoked'),
@@ -212,7 +218,9 @@ describe('trace smoke tests', () => {
 
   it('lim emits trace events', () => {
     const events: TraceEvent[] = [];
-    limPair(players, [], { trace: (event) => events.push(event) });
+    limPair(players, [], {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
     expect(events.length).toBeGreaterThan(0);
     expect(
       events.some((event) => event.type === 'pairing:blossom-invoked'),
@@ -221,13 +229,17 @@ describe('trace smoke tests', () => {
 
   it('double-swiss emits trace events', () => {
     const events: TraceEvent[] = [];
-    doublePair(players, [], { trace: (event) => events.push(event) });
+    doublePair(players, [], {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
     expect(events.length).toBeGreaterThan(0);
   });
 
   it('swiss-team emits trace events', () => {
     const events: TraceEvent[] = [];
-    teamPair(players, [], { trace: (event) => events.push(event) });
+    teamPair(players, [], {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
     expect(events.length).toBeGreaterThan(0);
   });
 });

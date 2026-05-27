@@ -3,10 +3,9 @@ export type {
   Bye,
   CompletedRound,
   Game,
-  PairOptions,
   Pairing,
+  PairingOptions,
   Pairings,
   Player,
-  TraceCallback,
   TraceEvent,
 } from './types.js';

@@ -174,17 +174,4 @@ type PairingTraceEvent =
 
 type TraceEvent = BlossomTraceEvent | PairingTraceEvent;
 
-type TraceCallback = (event: TraceEvent) => void;
-
-interface PairOptions {
-  expectedRounds?: number;
-  trace?: TraceCallback;
-}
-
-export type {
-  BlossomTraceEvent,
-  PairOptions,
-  PairingTraceEvent,
-  TraceCallback,
-  TraceEvent,
-};
+export type { BlossomTraceEvent, PairingTraceEvent, TraceEvent };

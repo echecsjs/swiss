@@ -5,10 +5,11 @@ export type {
   CompletedRound,
   Game,
   Pairing,
+  PairingOptions,
   Pairings,
   Player,
 } from '@echecs/tournament';
 
 export type { FloatKind };
 
-export type { PairOptions, TraceCallback, TraceEvent } from './trace.js';
+export type { TraceEvent } from './trace.js';
