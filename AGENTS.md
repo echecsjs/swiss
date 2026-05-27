@@ -153,10 +153,10 @@ All pairing systems consumed by `@echecs/tournament` must conform to:
 
 ```typescript
 type PairingSystem = (
-  players: Standing[],
-  games: Game[][],
-  options?: object,
-) => { pairings: Pairing[]; byes: Bye[] };
+  players: Player[],
+  rounds: CompletedRound[],
+  options?: PairingOptions,
+) => Pairings;
 ```
 
 ---

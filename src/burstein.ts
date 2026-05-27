@@ -31,8 +31,13 @@ import {
   scoreGroups,
 } from './utilities.js';
 
-import type { PairOptions } from './trace.js';
-import type { CompletedRound, Game, Pairings, Player } from './types.js';
+import type {
+  CompletedRound,
+  Game,
+  PairingOptions,
+  Pairings,
+  Player,
+} from './types.js';
 import type { PlayerState } from './utilities.js';
 import type { BracketContext, Criterion } from './weights.js';
 
@@ -259,7 +264,7 @@ const BURSTEIN_CRITERIA: Criterion[] = [
 function pair(
   players: Player[],
   rounds: CompletedRound[],
-  options?: PairOptions,
+  options?: PairingOptions,
 ): Pairings {
   if (players.length < 2) {
     throw new RangeError('at least 2 players are required');

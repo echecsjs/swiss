@@ -293,7 +293,9 @@ describe('dutch fixture: issue_7', () => {
 
   it('does not spin the bracket loop when unmatched players remain', () => {
     const events: TraceEvent[] = [];
-    pair(players, roundsBefore, { trace: (event) => events.push(event) });
+    pair(players, roundsBefore, {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
 
     const bracketEnters = events.filter(
       (event) => event.type === 'dutch:bracket-enter',
@@ -303,7 +305,9 @@ describe('dutch fixture: issue_7', () => {
 
   it('finalizes each remainder pair individually with blossom re-runs', () => {
     const events: TraceEvent[] = [];
-    pair(players, roundsBefore, { trace: (event) => events.push(event) });
+    pair(players, roundsBefore, {
+      trace: (event) => events.push(event as unknown as TraceEvent),
+    });
 
     const remainderFinalizations = events.filter(
       (event) =>

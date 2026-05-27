@@ -11,9 +11,9 @@ import { maxWeightMatching } from './blossom.js';
 import { buildEdgeWeight } from './weights.js';
 
 import type { DynamicUint } from './dynamic-uint.js';
-import type { TraceCallback } from './trace.js';
 import type { PlayerState } from './utilities.js';
 import type { BracketContext, Criterion } from './weights.js';
+import type { TraceCallback } from '@echecs/tournament';
 
 /**
  * Build a complete graph for a set of players.
