@@ -6,7 +6,7 @@
   "description": "Swiss chess tournament pairings following FIDE rules. Implements Dutch, Dubov, Burstein, Lim, Double, and Team Swiss systems.",
   "devDependencies": {
     "@echecs/tournament": "^3.3.0",
-    "@echecs/trf": "^3.1.1",
+    "@echecs/trf": "^4.0.0",
     "@eslint/js": "^10.0.1",
     "@typescript-eslint/parser": "^8.60.0",
     "@vitest/coverage-v8": "^4.1.7",
