@@ -16,8 +16,8 @@ import { pair as teamPair } from '../swiss-team.js';
 import dutchC5 from './fixtures/dutch_2025_C5.trf?raw';
 
 import type { TraceEvent } from '../trace.js';
-import type { CompletedRound, Player } from '../types.js';
-import type { Tournament } from '@echecs/trf';
+import type { Player } from '../types.js';
+import type { TournamentData } from '@echecs/trf';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,68 +29,13 @@ function edges(
   return raw.map(([u, v, w]) => [u, v, DynamicUint.from(w)]);
 }
 
-function toSwissPlayers(tournament: Tournament): Player[] {
+function toSwissPlayers(tournament: TournamentData): Player[] {
   return tournament.players.map((p) => ({
-    id: String(p.pairingNumber),
+    id: p.id,
     points: 0,
-    rank: p.pairingNumber,
+    rank: p.rank,
     rating: p.rating,
   }));
-}
-
-function toSwissRounds(tournament: Tournament): CompletedRound[] {
-  let maxRound = 0;
-  for (const player of tournament.players) {
-    for (const result of player.results) {
-      if (result.round > maxRound) {
-        maxRound = result.round;
-      }
-    }
-  }
-
-  const roundArrays: CompletedRound[] = Array.from(
-    { length: maxRound },
-    () => ({ byes: [], games: [] }),
-  );
-
-  for (const player of tournament.players) {
-    for (const result of player.results) {
-      if (result.color !== 'w' || result.opponentId === null) {
-        continue;
-      }
-      let gameResult: 'black' | 'draw' | 'white';
-      switch (result.result) {
-        case '1':
-        case '+': {
-          gameResult = 'white';
-          break;
-        }
-        case '0':
-        case '-': {
-          gameResult = 'black';
-          break;
-        }
-        case '=': {
-          gameResult = 'draw';
-          break;
-        }
-        default: {
-          continue;
-        }
-      }
-      const roundIndex = result.round - 1;
-      const roundData = roundArrays[roundIndex];
-      if (roundData !== undefined) {
-        roundData.games.push({
-          black: String(result.opponentId),
-          result: gameResult,
-          white: String(player.pairingNumber),
-        });
-      }
-    }
-  }
-
-  return roundArrays;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,8 +93,7 @@ describe('dutch trace', () => {
   it('emits expected event types for C5 fixture', () => {
     const tournament = parse(dutchC5)!;
     const players = toSwissPlayers(tournament);
-    const allRounds = toSwissRounds(tournament);
-    const priorRounds = allRounds.slice(0, 2);
+    const priorRounds = tournament.completedRounds.slice(0, 2);
 
     const events: TraceEvent[] = [];
     pair(players, priorRounds, {
@@ -168,8 +112,7 @@ describe('dutch trace', () => {
   it('produces the same pairings with and without trace', () => {
     const tournament = parse(dutchC5)!;
     const players = toSwissPlayers(tournament);
-    const allRounds = toSwissRounds(tournament);
-    const priorRounds = allRounds.slice(0, 2);
+    const priorRounds = tournament.completedRounds.slice(0, 2);
 
     const withoutTrace = pair(players, priorRounds);
     const events: TraceEvent[] = [];
