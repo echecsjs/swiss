@@ -495,6 +495,7 @@ class Graph implements GraphLike {
         const pathBack: Vertex[] = [vertex1];
 
         // Expand front toward its exposed root.
+
         while (pathFront[0]!.rootBlossom!.baseVertexMatch) {
           const front = pathFront[0]!;
           pathFront.unshift(front.rootBlossom!.baseVertex);

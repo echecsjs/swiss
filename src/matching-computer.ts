@@ -52,7 +52,7 @@ class MatchingComputer {
    * Must be called after `computeMatching`.
    */
   getMatching(): number[] {
-    const result = Array.from<number>({ length: this.size }).fill(-1);
+    const result = Array.from<unknown, number>({ length: this.size }, () => -1);
 
     for (const rb of this.graph.rootBlossomPool) {
       const baseIndex = rb.baseVertex.vertexIndex;
