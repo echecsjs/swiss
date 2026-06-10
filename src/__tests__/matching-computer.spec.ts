@@ -365,7 +365,10 @@ function initializeDuals(graph: Graph): void {
  * and result[i] = i means vertex i is unmatched (self-loop).
  */
 function getMatching(graph: Graph): number[] {
-  const result = Array.from<number>({ length: graph.vertices.length }).fill(-1);
+  const result = Array.from<unknown, number>(
+    { length: graph.vertices.length },
+    () => -1,
+  );
 
   for (const rb of graph.rootBlossomPool) {
     rb.putVerticesInMatchingOrder();
