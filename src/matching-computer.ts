@@ -65,9 +65,9 @@ class MatchingComputer {
       // putVerticesInMatchingOrder). Vertices after the base are in
       // consecutive matched pairs.
       let v = rb.rootChild.vertexListHead.nextVertex;
-      while (v !== undefined) {
+      vertexLoop: while (v !== undefined) {
         const partner = v.nextVertex;
-        if (partner === undefined) break;
+        if (partner === undefined) break vertexLoop;
         result[v.vertexIndex] = partner.vertexIndex;
         result[partner.vertexIndex] = v.vertexIndex;
         v = partner.nextVertex;

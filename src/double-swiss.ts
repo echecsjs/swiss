@@ -30,8 +30,9 @@ function makeAllocateDoubleColors(
     b: PlayerState,
   ): { black: string; white: string } {
     // Determine HRP: higher score wins; ties broken by smaller TPN.
-    const hrpIsA = a.score > b.score || (a.score === b.score && a.tpn < b.tpn);
-    const [hrp, opp] = hrpIsA ? [a, b] : [b, a];
+    const isHrpIsA =
+      a.score > b.score || (a.score === b.score && a.tpn < b.tpn);
+    const [hrp, opp] = isHrpIsA ? [a, b] : [b, a];
 
     const hrpHistory = matchColorHistory(hrp.id, rounds);
     const oppHistory = matchColorHistory(opp.id, rounds);
@@ -51,7 +52,7 @@ function makeAllocateDoubleColors(
     if (hrpHistory.length === 0 && oppHistory.length === 0) {
       // HRP has odd 1-based TPN → give HRP initial color (White).
       // HRP has even 1-based TPN → give HRP opposite (Black).
-      return hrp.tpn % 2 === 1 ? hrpWhite() : hrpBlack();
+      return (hrp.tpn % 2 === 1 ? hrpWhite : hrpBlack)();
     }
 
     // 4.3.2 — Fewer Whites.
@@ -59,7 +60,7 @@ function makeAllocateDoubleColors(
     const oppWhites = oppHistory.filter((c) => c === 'white').length;
     if (hrpWhites !== oppWhites) {
       // Player with fewer whites gets White.
-      return hrpWhites < oppWhites ? hrpWhite() : hrpBlack();
+      return (hrpWhites < oppWhites ? hrpWhite : hrpBlack)();
     }
 
     // 4.3.3 — Alternate from most recent divergence.
@@ -75,21 +76,21 @@ function makeAllocateDoubleColors(
       ) {
         // Found divergence: alternate from that round.
         // If HRP had White in that round, HRP gets Black now (and vice versa).
-        return hrpColor === 'white' ? hrpBlack() : hrpWhite();
+        return (hrpColor === 'white' ? hrpBlack : hrpWhite)();
       }
     }
 
     // 4.3.4 — Alternate HRP's color from most recent match.
     const hrpLast = hrpHistory.at(-1);
     if (hrpLast !== undefined) {
-      return hrpLast === 'white' ? hrpBlack() : hrpWhite();
+      return (hrpLast === 'white' ? hrpBlack : hrpWhite)();
     }
 
     // 4.3.5 — Alternate opponent's color from most recent match.
     const oppLast = oppHistory.at(-1);
     if (oppLast !== undefined) {
       // Alternate opp's color: if opp had white → opp gets black (HRP gets white).
-      return oppLast === 'white' ? hrpWhite() : hrpBlack();
+      return (oppLast === 'white' ? hrpWhite : hrpBlack)();
     }
 
     // Fallback: HRP gets White.

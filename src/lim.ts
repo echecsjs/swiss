@@ -86,7 +86,10 @@ function computeScoreGroupParameters(states: PlayerState[]): {
   );
 
   // Build shifts from lowest score upward
-  const sortedScores = [...groups.keys()].toSorted((a, b) => a - b);
+  const sortedScores = groups
+    .keys()
+    .toArray()
+    .toSorted((a, b) => a - b);
   const scoreGroupShifts = new Map<number, number>();
   let offset = 0;
   for (const sc of sortedScores) {
@@ -189,8 +192,8 @@ const LIM_CRITERIA: Criterion[] = [
     bits: (context: BracketContext) =>
       (context as LimContext).scoreGroupSizeBits,
     evaluate: (a: PlayerState, b: PlayerState, context: BracketContext) => {
-      const lContext = context as LimContextFull;
       if (a.score !== b.score) return 0;
+      const lContext = context as LimContextFull;
 
       const groupSize = lContext.groupSizes.get(a.score) ?? 2;
       const half = Math.floor(groupSize / 2);
@@ -287,13 +290,13 @@ function pair(
   const stateById = new Map<string, PlayerState>();
   for (const s of sorted) stateById.set(s.id, s);
 
-  const needsBye = sorted.length % 2 === 1;
+  const isNeedsBye = sorted.length % 2 === 1;
 
   // -------------------------------------------------------------------------
   // Determine bye assignee
   // -------------------------------------------------------------------------
   let byeState: PlayerState | undefined;
-  if (needsBye) {
+  if (isNeedsBye) {
     byeState = assignBye(sorted, rounds, limByeTiebreak);
   }
 

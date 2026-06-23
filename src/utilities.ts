@@ -178,10 +178,10 @@ function buildPlayerStates(
         // forfeit win: the player who won the forfeit floats down
         // game.forfeit === 'black' means black forfeited, white wins
         // game.forfeit === 'white' means white forfeited, black wins
-        const wonForfeit =
+        const isWonForfeit =
           (isWhite && game.forfeit === 'black') ||
           (!isWhite && game.forfeit === 'white');
-        floatHistory.push(wonForfeit ? 'down' : undefined);
+        floatHistory.push(isWonForfeit ? 'down' : undefined);
       } else {
         const opponentId = isWhite ? game.black : game.white;
         const scoresBeforeRound = cumulativeScore[roundIndex];
@@ -282,7 +282,7 @@ function scoreGroups(states: PlayerState[]): Map<number, PlayerState[]> {
   // Sort each group by TPN ascending
   // Return map with keys sorted descending; sort groups by TPN ascending
   return new Map(
-    [...groups.entries()]
+    [...groups]
       .toSorted(([a], [b]) => b - a)
       .map(([k, v]) => [k, v.toSorted((a, b) => a.tpn - b.tpn)]),
   );
@@ -390,9 +390,9 @@ function rankPreference(s: PlayerState['preferenceStrength']): number {
  * need this — their fallback (5.2.5) handles round 1 implicitly.
  */
 const ROUND_1_COLOR_RULE: ColorRule = (hrp, opp) => {
-  const hrpHasHistory = hrp.colorHistory.some((c) => c !== undefined);
-  const oppHasHistory = opp.colorHistory.some((c) => c !== undefined);
-  if (!hrpHasHistory && !oppHasHistory) {
+  const isHrpHasHistory = hrp.colorHistory.some((c) => c !== undefined);
+  const isOppHasHistory = opp.colorHistory.some((c) => c !== undefined);
+  if (!isHrpHasHistory && !isOppHasHistory) {
     return hrp.tpn % 2 === 1 ? 'hrp-white' : 'hrp-black';
   }
   return 'continue';

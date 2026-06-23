@@ -166,12 +166,13 @@ function getAncestorOfVertex(
 function setPointersFromAncestor(
   vertex: Vertex,
   ancestor: Blossom,
-  startWithSubblossom: boolean,
+  shouldStartWithSubblossom: boolean,
 ): void {
   let blossom: Blossom = vertex;
   while (blossom !== ancestor) {
     blossom.parentBlossom!.subblossom = blossom;
-    blossom.parentBlossom!.iterationStartsWithSubblossom = startWithSubblossom;
+    blossom.parentBlossom!.iterationStartsWithSubblossom =
+      shouldStartWithSubblossom;
     blossom = blossom.parentBlossom!;
   }
 }
@@ -288,16 +289,16 @@ class RootBlossom {
   putVerticesInMatchingOrder(): void {
     let currentBlossom: Blossom = this.rootChild;
     let currentVertex: Vertex = this.baseVertex;
-    let startsWithBase = true;
+    let isStartsWithBase = true;
 
     do {
-      setPointersFromAncestor(currentVertex, currentBlossom, startsWithBase);
+      setPointersFromAncestor(currentVertex, currentBlossom, isStartsWithBase);
       currentBlossom = currentVertex;
 
-      while (currentBlossom !== this.rootChild) {
+      innerLoop: while (currentBlossom !== this.rootChild) {
         const nextBlossom: Blossom = currentBlossom.nextBlossom!;
-        startsWithBase =
-          !startsWithBase &&
+        isStartsWithBase =
+          !isStartsWithBase &&
           currentBlossom.parentBlossom!.subblossom !== currentBlossom;
 
         currentBlossom.previousBlossom!.vertexListTail.nextVertex =
@@ -307,61 +308,32 @@ class RootBlossom {
 
         if (currentBlossom === currentBlossom.parentBlossom!.subblossom) {
           const parentBlossom: ParentBlossom = currentBlossom.parentBlossom!;
-          startsWithBase = parentBlossom.iterationStartsWithSubblossom;
+          isStartsWithBase = parentBlossom.iterationStartsWithSubblossom;
 
           currentBlossom.previousBlossom!.vertexListTail.nextVertex =
             currentBlossom.vertexListHead;
 
           parentBlossom.vertexListHead = (
-            startsWithBase ? currentBlossom : currentBlossom.nextBlossom!
+            isStartsWithBase ? currentBlossom : currentBlossom.nextBlossom!
           ).vertexListHead;
 
           parentBlossom.vertexListTail = (
-            startsWithBase ? currentBlossom.previousBlossom! : currentBlossom
+            isStartsWithBase ? currentBlossom.previousBlossom! : currentBlossom
           ).vertexListTail;
 
           currentBlossom = parentBlossom;
           // Repeat inner loop, iterating up to the parent blossom.
         } else {
-          currentVertex = startsWithBase
+          currentVertex = isStartsWithBase
             ? currentBlossom.vertexToPreviousSiblingBlossom!
             : currentBlossom.vertexToNextSiblingBlossom!;
-          break;
+          break innerLoop;
           // Repeat outer loop with a new Vertex.
         }
       }
     } while (currentBlossom !== this.rootChild);
 
     this.rootChild.vertexListTail.nextVertex = undefined;
-  }
-
-  // ---------------------------------------------------------------------------
-  // updateRootBlossomInDescendants (rootblossomimpl.h:176-195)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Update the rootBlossom pointer on all descendant vertices and
-   * ParentBlossoms to point to `target` (or `this` if omitted).
-   *
-   * The C++ version always takes a target parameter. Existing callers that
-   * pass no argument get the old behavior (defaults to `this`).
-   *
-   * Ported from bbpPairings `rootblossomimpl.h:174-193`.
-   */
-  updateRootBlossomInDescendants(target?: RootBlossom): void {
-    const rb = target ?? this;
-    for (
-      let v: Vertex | undefined = this.rootChild.vertexListHead;
-      v;
-      v = v.nextVertex
-    ) {
-      v.rootBlossom = rb;
-      let pb: ParentBlossom | undefined = v.parentBlossom;
-      while (pb && pb.vertexListTail === v) {
-        pb.rootBlossom = rb;
-        pb = pb.parentBlossom;
-      }
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -412,7 +384,7 @@ class RootBlossom {
     // Create all the other RootBlossoms for siblings of ancestor.
     let childToFree: Blossom = ancestor;
     while (blossom) {
-      let linksForward = true;
+      let isLinksForward = true;
       let previousBlossom: Blossom | undefined;
 
       for (
@@ -422,11 +394,11 @@ class RootBlossom {
       ) {
         nextBlossom = currentBlossom!.nextBlossom;
 
-        const siblingBaseVertex = linksForward
+        const siblingBaseVertex = isLinksForward
           ? currentBlossom!.vertexToNextSiblingBlossom!
           : currentBlossom!.vertexToPreviousSiblingBlossom!;
 
-        const siblingBaseVertexMatch = linksForward
+        const siblingBaseVertexMatch = isLinksForward
           ? nextBlossom?.vertexToPreviousSiblingBlossom
           : previousBlossom?.vertexToNextSiblingBlossom;
 
@@ -447,7 +419,7 @@ class RootBlossom {
           iterator.dualVariable.add(dualVariableAdjustment);
         }
 
-        linksForward = !linksForward;
+        isLinksForward = !isLinksForward;
         previousBlossom = currentBlossom;
       }
 
@@ -474,6 +446,35 @@ class RootBlossom {
 
     // Destroy this RootBlossom.
     graph.rootBlossomPool.destroy(this.poolIndex);
+  }
+
+  // ---------------------------------------------------------------------------
+  // updateRootBlossomInDescendants (rootblossomimpl.h:176-195)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Update the rootBlossom pointer on all descendant vertices and
+   * ParentBlossoms to point to `target` (or `this` if omitted).
+   *
+   * The C++ version always takes a target parameter. Existing callers that
+   * pass no argument get the old behavior (defaults to `this`).
+   *
+   * Ported from bbpPairings `rootblossomimpl.h:174-193`.
+   */
+  updateRootBlossomInDescendants(target?: RootBlossom): void {
+    const rb = target ?? this;
+    for (
+      let v: Vertex | undefined = this.rootChild.vertexListHead;
+      v;
+      v = v.nextVertex
+    ) {
+      v.rootBlossom = rb;
+      let pb: ParentBlossom | undefined = v.parentBlossom;
+      while (pb && pb.vertexListTail === v) {
+        pb.rootBlossom = rb;
+        pb = pb.parentBlossom;
+      }
+    }
   }
 }
 

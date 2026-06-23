@@ -28,7 +28,7 @@ describe('lim', () => {
       expect(result.games).toHaveLength(2);
       expect(result.byes).toHaveLength(0);
       const ids = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(ids).toContain('A-C');
       expect(ids).toContain('B-D');
@@ -39,7 +39,7 @@ describe('lim', () => {
       expect(result.games).toHaveLength(3);
       expect(result.byes).toHaveLength(0);
       const ids = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(ids).toContain('A-D');
       expect(ids).toContain('B-E');
@@ -80,7 +80,7 @@ describe('lim', () => {
       // After round 1: A=1, B=0, C=0, D=1
       const result = pair(FOUR_PLAYERS, [round1]);
       const pairs = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       // A vs D is valid (didn't play); B vs C is valid (didn't play)
       expect(pairs).toContain('A-D');
@@ -98,7 +98,7 @@ describe('lim', () => {
       };
       const result = pair(FOUR_PLAYERS, [round1]);
       const pairs = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       // No rematches
       const playedPairs = ['A-C', 'B-D'];
@@ -228,10 +228,14 @@ describe('lim', () => {
       };
       const round2Result = pair(FOUR_PLAYERS, [round1]);
       const round1Pairs = new Set(
-        round1Result.games.map((p) => [p.white, p.black].toSorted().join('-')),
+        round1Result.games.map((p) =>
+          [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
+        ),
       );
       for (const p of round2Result.games) {
-        const key = [p.white, p.black].toSorted().join('-');
+        const key = [p.white, p.black]
+          .toSorted((a, b) => a.localeCompare(b))
+          .join('-');
         expect(round1Pairs.has(key)).toBe(false);
       }
     });
@@ -275,11 +279,14 @@ describe('lim', () => {
 
         // Check no rematches
         for (const p of result.games) {
-          const key = [p.white, p.black].toSorted().join('-') as string;
-          const alreadyPlayed = allPairings.some(
-            ([a, b]) => [a, b].toSorted().join('-') === key,
+          const key = [p.white, p.black]
+            .toSorted((a, b) => a.localeCompare(b))
+            .join('-') as string;
+          const isAlreadyPlayed = allPairings.some(
+            ([a, b]) =>
+              [a, b].toSorted((x, y) => x.localeCompare(y)).join('-') === key,
           );
-          expect(alreadyPlayed).toBe(false);
+          expect(isAlreadyPlayed).toBe(false);
           allPairings.push([p.white, p.black]);
         }
 
@@ -300,13 +307,11 @@ describe('lim', () => {
         // Simulate results: white always wins
         const roundCompleted: CompletedRound = {
           byes: result.byes,
-          games: [
-            ...result.games.map((p) => ({
-              black: p.black,
-              result: 'white' as const,
-              white: p.white,
-            })),
-          ],
+          games: result.games.map((p) => ({
+            black: p.black,
+            result: 'white' as const,
+            white: p.white,
+          })),
         };
         rounds = [...rounds, roundCompleted];
       }

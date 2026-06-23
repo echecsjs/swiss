@@ -683,7 +683,7 @@ describe('scoreGroups', () => {
   it('groups players by score with keys sorted descending', () => {
     const states = buildPlayerStates(PLAYERS, GAMES);
     const groups = scoreGroups(states);
-    const keys = [...groups.keys()];
+    const keys = groups.keys().toArray();
     // After 2 rounds: A=1.5, B=1, C=0.5, D=1 → keys descending: 1.5, 1, 0.5
     expect(keys).toEqual([1.5, 1, 0.5]);
   });
@@ -846,13 +846,13 @@ describe('allocateColor', () => {
     const a = makeState('A', 2, 1);
     const b = makeState('B', 1, 2);
 
-    let laterRuleCalled = false;
+    let isLaterRuleCalled = false;
     const trackingRule = () => {
-      laterRuleCalled = true;
+      isLaterRuleCalled = true;
       return 'hrp-black' as const;
     };
 
     allocateColor(a, b, [ruleHrpWhite, trackingRule], rankByTpnAsc);
-    expect(laterRuleCalled).toBe(false);
+    expect(isLaterRuleCalled).toBe(false);
   });
 });

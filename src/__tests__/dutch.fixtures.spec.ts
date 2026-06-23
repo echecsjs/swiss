@@ -105,7 +105,9 @@ describe('dutch fixture: dutch_2025_C5', () => {
   it('produces the correct pairings for round 3 (FIDE Dutch C5): 1 vs 5, 3 vs 2, bye to 6', () => {
     const result = pair(players, roundsBefore);
     const pairingSet = new Set(
-      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) =>
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
+      ),
     );
     expect(pairingSet).toContain('1-5');
     expect(pairingSet).toContain('2-3');
@@ -138,7 +140,9 @@ describe('dutch fixture: dutch_2025_C9', () => {
   it('produces the correct pairings for round 3 (FIDE Dutch C9): 2 vs 1, 3 vs 5, bye to 4', () => {
     const result = pair(players, roundsBefore);
     const pairingSet = new Set(
-      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) =>
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
+      ),
     );
     expect(pairingSet).toContain('1-2');
     expect(pairingSet).toContain('3-5');
@@ -170,13 +174,13 @@ describe('dutch fixture: issue_7', () => {
       .flatMap((r) => r.games)
       .filter((g) => g.forfeit === undefined);
     for (const pairing of result.games) {
-      const alreadyFaced = played.some(
+      const isAlreadyFaced = played.some(
         (g) =>
           (g.white === pairing.white && g.black === pairing.black) ||
           (g.white === pairing.black && g.black === pairing.white),
       );
       expect(
-        alreadyFaced,
+        isAlreadyFaced,
         `rematch detected: ${pairing.white} vs ${pairing.black}`,
       ).toBe(false);
     }
@@ -185,7 +189,9 @@ describe('dutch fixture: issue_7', () => {
   it('does not spin the bracket loop when unmatched players remain', () => {
     const events: TraceEvent[] = [];
     pair(players, roundsBefore, {
-      trace: (event) => events.push(event as unknown as TraceEvent),
+      trace: (event) => {
+        events.push(event as unknown as TraceEvent);
+      },
     });
 
     const bracketEnters = events.filter(
@@ -197,7 +203,9 @@ describe('dutch fixture: issue_7', () => {
   it('finalizes each remainder pair individually with blossom re-runs', () => {
     const events: TraceEvent[] = [];
     pair(players, roundsBefore, {
-      trace: (event) => events.push(event as unknown as TraceEvent),
+      trace: (event) => {
+        events.push(event as unknown as TraceEvent);
+      },
     });
 
     const remainderFinalizations = events.filter(
@@ -267,12 +275,16 @@ describe('dutch fixture: issue_7', () => {
     ];
 
     const expectedSet = new Set(
-      expected.map(([w, b]) => [w, b].toSorted().join('-')),
+      expected.map(([w, b]) =>
+        [w, b].toSorted((a, b_) => a.localeCompare(b_)).join('-'),
+      ),
     );
 
     const result = pair(players, roundsBefore);
     const actualSet = new Set(
-      result.games.map((p) => [p.white, p.black].toSorted().join('-')),
+      result.games.map((p) =>
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
+      ),
     );
 
     expect(actualSet).toEqual(expectedSet);
@@ -320,13 +332,13 @@ describe('dutch fixture: issue_15', () => {
       .flatMap((r) => r.games)
       .filter((g) => g.forfeit === undefined);
     for (const pairing of result.games) {
-      const alreadyFaced = played.some(
+      const isAlreadyFaced = played.some(
         (g) =>
           (g.white === pairing.white && g.black === pairing.black) ||
           (g.white === pairing.black && g.black === pairing.white),
       );
       expect(
-        alreadyFaced,
+        isAlreadyFaced,
         `rematch detected: ${pairing.white} vs ${pairing.black}`,
       ).toBe(false);
     }

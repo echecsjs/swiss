@@ -147,8 +147,8 @@ function pairBracket(
 
   // Return the first matching satisfying C1 (no rematches).
   for (const matching of matchings) {
-    const valid = matching.every(([a, b]) => !a.opponents.has(b.id));
-    if (valid) {
+    const isValid = matching.every(([a, b]) => !a.opponents.has(b.id));
+    if (isValid) {
       return matching.map(([a, b]) => allocateColors(a, b));
     }
   }
@@ -169,7 +169,10 @@ function pairAllBrackets(
 ): Pairing[] {
   // Build score groups in descending score order.
   const groups = scoreGroups(toBePaired);
-  const sortedScores = [...groups.keys()].toSorted((a, b) => b - a);
+  const sortedScores = groups
+    .keys()
+    .toArray()
+    .toSorted((a, b) => b - a);
 
   const pairings: Pairing[] = [];
   // Track which players have been paired (to handle upfloaters).

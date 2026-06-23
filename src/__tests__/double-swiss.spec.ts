@@ -212,12 +212,10 @@ describe('doubleSwiss', () => {
       const result1 = pair(FOUR_PLAYERS, []);
       const round1: CompletedRound = {
         byes: result1.byes,
-        games: [
-          ...result1.games.flatMap((p) => [
-            { black: p.black, result: 'draw' as const, white: p.white },
-            { black: p.white, result: 'draw' as const, white: p.black },
-          ]),
-        ],
+        games: result1.games.flatMap((p) => [
+          { black: p.black, result: 'draw' as const, white: p.white },
+          { black: p.white, result: 'draw' as const, white: p.black },
+        ]),
       };
       const result2 = pair(FOUR_PLAYERS, [round1]);
       for (const p2 of result2.games) {
@@ -249,16 +247,24 @@ describe('doubleSwiss', () => {
     it('all players appear exactly once per round (even count)', () => {
       const result = pair(FOUR_PLAYERS, []);
       const allIds = result.games.flatMap((p) => [p.white, p.black]);
-      const playerIds = FOUR_PLAYERS.map((p) => p.id).toSorted();
-      expect(allIds.toSorted()).toStrictEqual(playerIds);
+      const playerIds = FOUR_PLAYERS.map((p) => p.id).toSorted((a, b) =>
+        a.localeCompare(b),
+      );
+      expect(allIds.toSorted((a, b) => a.localeCompare(b))).toStrictEqual(
+        playerIds,
+      );
     });
 
     it('all players appear exactly once per round (odd count)', () => {
       const result = pair(THREE_PLAYERS, []);
       const pairedIds = result.games.flatMap((p) => [p.white, p.black]);
       const byeIds = result.byes.map((b) => b.player);
-      const allIds = [...pairedIds, ...byeIds].toSorted();
-      const playerIds = THREE_PLAYERS.map((p) => p.id).toSorted();
+      const allIds = [...pairedIds, ...byeIds].toSorted((a, b) =>
+        a.localeCompare(b),
+      );
+      const playerIds = THREE_PLAYERS.map((p) => p.id).toSorted((a, b) =>
+        a.localeCompare(b),
+      );
       expect(allIds).toStrictEqual(playerIds);
     });
 
@@ -295,12 +301,10 @@ describe('doubleSwiss', () => {
         // Record games (all draws for simplicity)
         const roundCompleted: CompletedRound = {
           byes: [],
-          games: [
-            ...result.games.flatMap((p) => [
-              { black: p.black, result: 'draw' as const, white: p.white },
-              { black: p.white, result: 'draw' as const, white: p.black },
-            ]),
-          ],
+          games: result.games.flatMap((p) => [
+            { black: p.black, result: 'draw' as const, white: p.white },
+            { black: p.white, result: 'draw' as const, white: p.black },
+          ]),
         };
         rounds = [...rounds, roundCompleted];
       }
@@ -310,7 +314,9 @@ describe('doubleSwiss', () => {
       for (const roundData of rounds) {
         const pairs = new Set<string>();
         for (const g of roundData.games) {
-          const key = [g.white, g.black].toSorted().join('-');
+          const key = [g.white, g.black]
+            .toSorted((a, b) => a.localeCompare(b))
+            .join('-');
           pairs.add(key);
         }
         for (const pairKey of pairs) {

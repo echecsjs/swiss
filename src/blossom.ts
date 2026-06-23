@@ -84,7 +84,7 @@ import type { TraceCallback } from '@echecs/tournament';
 
 function maxWeightMatching(
   edges: [number, number, DynamicUint][],
-  maxCardinality = false,
+  shouldUseMaxCardinality = false,
   trace?: TraceCallback,
 ): number[] {
   if (edges.length === 0) return [];
@@ -249,11 +249,13 @@ function maxWeightMatching(
    */
   function* blossomLeaves(node: number): Generator<number> {
     if (node < vertexCount) yield node;
-    else
-      for (const child of blossomChildren[node]!) {
+    else {
+      const children = blossomChildren[node]!;
+      for (const child of children) {
         if (child < vertexCount) yield child;
         else yield* blossomLeaves(child);
       }
+    }
   }
 
   /**
@@ -446,24 +448,25 @@ function maxWeightMatching(
    * 3. The `endptrick` parity variable handles direction-dependent
    *    flipping of endpoint indices.
    */
-  function expandBlossom(blossom: number, endstage: boolean): void {
+  function expandBlossom(blossom: number, isEndstage: boolean): void {
     if (trace) {
       trace({
         blossomIndex: blossom,
         childCount: blossomChildren[blossom]!.length,
-        endstage,
+        endstage: isEndstage,
         type: 'blossom:expanded',
       });
     }
-    for (const child of blossomChildren[blossom]!) {
+    const blossomChildList = blossomChildren[blossom]!;
+    for (const child of blossomChildList) {
       blossomParent[child] = -1;
       if (child < vertexCount) vertexTopBlossom[child] = child;
-      else if (endstage && dual[child]!.isZero())
-        expandBlossom(child, endstage);
+      else if (isEndstage && dual[child]!.isZero())
+        expandBlossom(child, isEndstage);
       else
         for (const leaf of blossomLeaves(child)) vertexTopBlossom[leaf] = child;
     }
-    if (!endstage && labels[blossom] === 2) {
+    if (!isEndstage && labels[blossom] === 2) {
       const entryChild =
         vertexTopBlossom[endpoints[labelEndpoints[blossom]! ^ 1]!]!;
       const children = blossomChildren[blossom]!,
@@ -530,10 +533,10 @@ function maxWeightMatching(
           continue;
         }
         let labeledVertex = -1;
-        for (const leaf of blossomLeaves(loopBlossom)) {
+        leafLoop: for (const leaf of blossomLeaves(loopBlossom)) {
           if (labels[leaf] !== 0) {
             labeledVertex = leaf;
-            break;
+            break leafLoop;
           }
         }
         if (labeledVertex >= 0) {
@@ -640,11 +643,11 @@ function maxWeightMatching(
     ] as [number, number][]) {
       let vertex = startVertex,
         endpointIndex = startEndpoint;
-      while (true) {
+      augmentLoop: while (true) {
         const blossom = vertexTopBlossom[vertex]!;
         if (blossom >= vertexCount) augmentBlossom(blossom, vertex);
         match[vertex] = endpointIndex;
-        if (labelEndpoints[blossom] === -1) break;
+        if (labelEndpoints[blossom] === -1) break augmentLoop;
         const tVertex = endpoints[labelEndpoints[blossom]!]!;
         const tBlossom = vertexTopBlossom[tVertex]!;
         vertex = endpoints[labelEndpoints[tBlossom]!]!;
@@ -670,19 +673,21 @@ function maxWeightMatching(
    *
    * @returns true if an augmenting path was found (matching was augmented).
    */
-  function scanNeighbors(): boolean {
+  function shouldScanNeighbors(): boolean {
     while (queue.length > 0) {
       const vertex = queue.pop()!;
-      for (const neighborEndpoint of neighborEdges[vertex]!) {
-        const edgeIndex = neighborEndpoint >> 1,
-          neighbor = endpoints[neighborEndpoint]!;
-        if (vertexTopBlossom[vertex] === vertexTopBlossom[neighbor]) continue;
+      const vertexNeighborEdges = neighborEdges[vertex]!;
+      neighborLoop: for (const neighborEndpoint of vertexNeighborEdges) {
+        const neighbor = endpoints[neighborEndpoint]!;
+        if (vertexTopBlossom[vertex] === vertexTopBlossom[neighbor])
+          continue neighborLoop;
+        const edgeIndex = neighborEndpoint >> 1;
         let edgeSlack: DynamicUint | undefined;
-        if (!edgeTight[edgeIndex]) {
+        if (edgeTight[edgeIndex] !== true) {
           edgeSlack = slack(edgeIndex);
           if (edgeSlack.compareTo(ZERO) <= 0) edgeTight[edgeIndex] = true;
         }
-        if (edgeTight[edgeIndex]) {
+        if (edgeTight[edgeIndex] === true) {
           if (labels[vertexTopBlossom[neighbor]!] === 0)
             assignLabel(neighbor, 2, neighborEndpoint ^ 1);
           else if (labels[vertexTopBlossom[neighbor]!] === 1) {
@@ -743,7 +748,7 @@ function maxWeightMatching(
       deltaEdge = -1,
       deltaBlossom = -1;
 
-    if (!maxCardinality) {
+    if (!shouldUseMaxCardinality) {
       deltaType = 1;
       candidateDelta = dual[0]!.clone();
       for (let v = 1; v < vertexCount; v++)
@@ -800,7 +805,7 @@ function maxWeightMatching(
     }
 
     if (deltaType === -1) {
-      if (maxCardinality) {
+      if (shouldUseMaxCardinality) {
         deltaType = 1;
         candidateDelta = dual[0]!.clone();
         for (let v = 1; v < vertexCount; v++)
@@ -909,7 +914,7 @@ function maxWeightMatching(
     for (let v = 0; v < vertexCount; v++)
       if (match[v] === -1 && labels[vertexTopBlossom[v]!] === 0)
         assignLabel(v, 1, -1);
-    let augmented: boolean;
+    let isAugmented: boolean;
     if (trace) {
       let unmatched = 0;
       for (let v = 0; v < vertexCount; v++) if (match[v] === -1) unmatched++;
@@ -922,9 +927,9 @@ function maxWeightMatching(
     }
 
     // ── Inner loop: alternate between scanning and dual updates ──
-    while (true) {
-      augmented = scanNeighbors();
-      if (augmented) break;
+    innerLoop: while (true) {
+      isAugmented = shouldScanNeighbors();
+      if (isAugmented) break innerLoop;
 
       const { deltaType, delta, deltaEdge, deltaBlossom } = computeDelta();
       if (trace && deltaType !== -1) {
@@ -934,18 +939,18 @@ function maxWeightMatching(
           type: 'blossom:delta',
         });
       }
-      if (deltaType === -1) break;
+      if (deltaType === -1) break innerLoop;
 
       applyDualUpdate(delta);
       if (trace) {
         trace({ delta: delta.toString(), type: 'blossom:dual-update' });
       }
       handleDelta(deltaType, deltaEdge, deltaBlossom);
-      if (deltaType === 1) break;
+      if (deltaType === 1) break innerLoop;
     }
 
     // No augmentation possible in this stage → optimal matching found.
-    if (!augmented) break;
+    if (!isAugmented) break;
 
     // ── End-of-stage cleanup ──
     // Expand any top-level S-blossoms whose dual variable has reached zero.

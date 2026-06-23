@@ -89,15 +89,15 @@ class Graph implements GraphLike {
    */
   parentBlossomPool: IterablePool<ParentBlossom>;
 
+  /** Pre-allocated scratch for resistance calculations. */
+  private readonly resistanceStorage: DynamicUint;
+
   /**
    * All active RootBlossoms. Pool with LIFO free-slot recycling and
    * doubly-linked iteration — matches C++ IterablePool semantics.
    * Implements GraphLike.rootBlossomPool.
    */
   rootBlossomPool: IterablePool<RootBlossom>;
-
-  /** Pre-allocated scratch for resistance calculations. */
-  private readonly resistanceStorage: DynamicUint;
 
   constructor(capacity: number, maxEdgeWeight: DynamicUint) {
     // aboveMaxEdgeWeight = maxEdgeWeight * 4 + 1 (strictly greater than 4x)
@@ -421,7 +421,7 @@ class Graph implements GraphLike {
       // -----------------------------------------------------------------------
       // CASE 3: OUTER↔OUTER tight edge
       // -----------------------------------------------------------------------
-      else if (minOuterOuterEdgeResistance.isZero()) {
+      if (minOuterOuterEdgeResistance.isZero()) {
         // Find the two vertices with zero resistance using minOuterEdges.
         // The C++ finds another OUTER rootBlossom != minOuterOuterEdgeResistanceRootBlossom
         // such that the edge between them is tight.
@@ -430,8 +430,8 @@ class Graph implements GraphLike {
 
         const rb0 = minOuterOuterEdgeResistanceRootBlossom;
         if (rb0 !== undefined) {
-          for (const rb1 of this.rootBlossomPool) {
-            if (rb1.label !== Label.OUTER || rb1 === rb0) continue;
+          rb0Search: for (const rb1 of this.rootBlossomPool) {
+            if (rb1.label !== Label.OUTER || rb1 === rb0) continue rb0Search;
             const v0: Vertex | undefined =
               rb0.minOuterEdges[rb1.baseVertex.vertexIndex];
             const v1: Vertex | undefined =
@@ -446,7 +446,7 @@ class Graph implements GraphLike {
               if (this.resistanceStorage.isZero()) {
                 vertex0 = v0;
                 vertex1 = v1;
-                break;
+                break rb0Search;
               }
             }
           }
@@ -454,20 +454,20 @@ class Graph implements GraphLike {
         // If not found via tracked references, do a brute-force scan as fallback.
         if (vertex0 === undefined || vertex1 === undefined) {
           outerSearch: for (const rb1 of this.rootBlossomPool) {
-            if (rb1.label !== Label.OUTER) continue;
-            for (const rb2 of this.rootBlossomPool) {
-              if (rb2 === rb1 || rb2.label !== Label.OUTER) continue;
+            if (rb1.label !== Label.OUTER) continue outerSearch;
+            rb2Loop: for (const rb2 of this.rootBlossomPool) {
+              if (rb2 === rb1 || rb2.label !== Label.OUTER) continue rb2Loop;
               for (
                 let v1: Vertex | undefined = rb1.rootChild.vertexListHead;
                 v1;
                 v1 = v1.nextVertex
               ) {
-                for (
+                v2Loop: for (
                   let v2: Vertex | undefined = rb2.rootChild.vertexListHead;
                   v2;
                   v2 = v2.nextVertex
                 ) {
-                  if (v1.vertexIndex === v2.vertexIndex) continue;
+                  if (v1.vertexIndex === v2.vertexIndex) continue v2Loop;
                   resistanceInto(this.resistanceStorage, v1, v2);
                   if (this.resistanceStorage.isZero()) {
                     vertex0 = v1;
@@ -499,9 +499,13 @@ class Graph implements GraphLike {
         while (pathFront[0]!.rootBlossom!.baseVertexMatch) {
           const front = pathFront[0]!;
           pathFront.unshift(front.rootBlossom!.baseVertex);
-          pathFront.unshift(pathFront[0]!.rootBlossom!.baseVertexMatch!);
-          pathFront.unshift(pathFront[0]!.rootBlossom!.labeledVertex!);
-          pathFront.unshift(pathFront[0]!.rootBlossom!.labelingVertex!);
+          const bvMatch = pathFront[0]!.rootBlossom!.baseVertexMatch!;
+          const labeledVertex = bvMatch.rootBlossom!.labeledVertex!;
+          pathFront.unshift(
+            labeledVertex.rootBlossom!.labelingVertex!,
+            labeledVertex,
+            bvMatch,
+          );
         }
 
         // Expand back toward its exposed root.
@@ -576,7 +580,6 @@ class Graph implements GraphLike {
           );
 
           // Continue the main loop.
-          continue;
         } else {
           // DIFFERENT ROOTS → augment.
           augmentToSource(vertex0, vertex1);
@@ -639,7 +642,6 @@ class Graph implements GraphLike {
         }
 
         // Continue main loop.
-        continue;
       }
 
       // -----------------------------------------------------------------------
@@ -671,34 +673,33 @@ class Graph implements GraphLike {
         // Determine if the path from rootChild to connectChild goes forward
         // (i.e., via nextBlossom links). C++ parity-flip pattern: count
         // steps from rootChild to connectChild; even distance = forward.
-        let connectForward = true;
+        let isConnectForward = true;
         for (
           let current: Blossom | undefined = rootChild;
           current !== connectChild;
           current = current!.nextBlossom
         ) {
-          connectForward = !connectForward;
+          isConnectForward = !isConnectForward;
         }
 
         // Walk the circular child list, assigning labels.
         // C++ loop: iterate from rootChild going forward (nextBlossom),
         // wrapping around until we return to rootChild.
         let isFree = false;
-        let linksToNext = false; // tracks edge direction alternation
+        let isLinksToNext = false; // tracks edge direction alternation
 
         // C++ graph.cpp:705 — use the circular list's previousBlossom directly.
         let previousChild: Blossom = rootChild.previousBlossom!;
 
         let currentChild: Blossom = rootChild;
-        let nextChild: Blossom | undefined;
         const newRootBlossoms: RootBlossom[] = [];
 
         do {
-          nextChild = currentChild.nextBlossom;
+          const nextChild: Blossom | undefined = currentChild.nextBlossom;
 
           // C++ logic for setting isFree: if we hit connectChild going
           // in the non-connectForward direction, isFree becomes false.
-          if (currentChild === connectChild && !connectForward) {
+          if (currentChild === connectChild && !isConnectForward) {
             isFree = false;
           }
 
@@ -709,7 +710,7 @@ class Graph implements GraphLike {
           // Children on the other side are FREE.
           const label: Label = isFree
             ? Label.FREE
-            : linksToNext !== connectForward || currentChild === rootChild
+            : isLinksToNext !== isConnectForward || currentChild === rootChild
               ? Label.INNER
               : Label.OUTER;
 
@@ -722,7 +723,7 @@ class Graph implements GraphLike {
           if (currentChild === rootChild) {
             newBaseVertex = rootVertex;
             newBaseVertexMatch = dissolvedRb.baseVertexMatch;
-          } else if (linksToNext) {
+          } else if (isLinksToNext) {
             newBaseVertex = currentChild.vertexToNextSiblingBlossom!;
             newBaseVertexMatch = nextChild?.vertexToPreviousSiblingBlossom;
           } else {
@@ -734,7 +735,7 @@ class Graph implements GraphLike {
             newLabelingVertex = dissolvedRb.labelingVertex;
             newLabeledVertex = dissolvedRb.labeledVertex;
           } else if (label === Label.INNER) {
-            if (connectForward) {
+            if (isConnectForward) {
               newLabelingVertex = nextChild?.vertexToPreviousSiblingBlossom;
               newLabeledVertex = currentChild.vertexToNextSiblingBlossom;
             } else {
@@ -789,11 +790,11 @@ class Graph implements GraphLike {
           }
 
           // Update isFree state after processing this child.
-          if (currentChild === (connectForward ? connectChild : rootChild)) {
+          if (currentChild === (isConnectForward ? connectChild : rootChild)) {
             isFree = true;
           }
 
-          linksToNext = !linksToNext;
+          isLinksToNext = !isLinksToNext;
           previousChild = currentChild;
           currentChild = nextChild!;
         } while (currentChild !== rootChild);
@@ -815,7 +816,6 @@ class Graph implements GraphLike {
         );
 
         // Continue main loop.
-        continue;
       } else {
         // No more progress possible.
         return false;
@@ -845,8 +845,8 @@ class Graph implements GraphLike {
       if (v.rootBlossom!.label === Label.OUTER) continue;
       v.minOuterEdgeResistance.copyFrom(this.aboveMaxEdgeWeight);
       v.minOuterEdge = undefined;
-      for (const outerV of outerVertices) {
-        if (v.vertexIndex === outerV.vertexIndex) continue;
+      outerVLoop: for (const outerV of outerVertices) {
+        if (v.vertexIndex === outerV.vertexIndex) continue outerVLoop;
         resistanceInto(rs, v, outerV);
         if (rs.lt(v.minOuterEdgeResistance)) {
           v.minOuterEdge = outerV;
@@ -868,9 +868,9 @@ class Graph implements GraphLike {
       for (let index = 0; index < rb.minOuterEdges.length; index++) {
         rb.minOuterEdges[index] = undefined;
       }
-      for (const otherRb of this.rootBlossomPool) {
-        if (otherRb === rb) continue;
-        if (otherRb.label !== Label.OUTER) continue;
+      otherRbLoop: for (const otherRb of this.rootBlossomPool) {
+        if (otherRb === rb) continue otherRbLoop;
+        if (otherRb.label !== Label.OUTER) continue otherRbLoop;
         const pairMin = this.aboveMaxEdgeWeight.clone();
         rb.minOuterEdges[otherRb.baseVertex.vertexIndex] = undefined;
         this.updateOuterOuterEdges(rb, otherRb, pairMin);
@@ -899,12 +899,12 @@ class Graph implements GraphLike {
     const rs = this.resistanceStorage;
     for (const innerVertex of this.vertices) {
       if (innerVertex.rootBlossom!.label === Label.OUTER) continue;
-      for (
+      outerVLoop: for (
         let outerV: Vertex | undefined = newOuterRb.rootChild.vertexListHead;
         outerV;
         outerV = outerV.nextVertex
       ) {
-        if (innerVertex.vertexIndex === outerV.vertexIndex) continue;
+        if (innerVertex.vertexIndex === outerV.vertexIndex) continue outerVLoop;
         resistanceInto(rs, innerVertex, outerV);
         if (
           innerVertex.minOuterEdge === undefined ||

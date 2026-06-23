@@ -66,7 +66,10 @@ function computeScoreGroupParameters(
   let maxSize = 0;
   for (const [, m] of groups) if (m.length > maxSize) maxSize = m.length;
   const scoreGroupSizeBits = Math.max(1, bitsToRepresent(maxSize));
-  const sortedScores = [...groups.keys()].toSorted((a, b) => a - b);
+  const sortedScores = groups
+    .keys()
+    .toArray()
+    .toSorted((a, b) => a - b);
   const scoreGroupShifts = new Map<number, number>();
   let offset = 0;
   for (const sc of sortedScores) {
@@ -97,19 +100,19 @@ function getFloat(player: PlayerState, roundsBack: number): FloatDirection {
 // Color predicates
 // ---------------------------------------------------------------------------
 
-function absoluteColorImbalance(p: PlayerState): boolean {
+function hasAbsoluteColorImbalance(p: PlayerState): boolean {
   return Math.abs(p.colorDiff) > 1;
 }
 
-function absoluteColorPreference(p: PlayerState): boolean {
+function hasAbsoluteColorPreference(p: PlayerState): boolean {
   return p.preferenceStrength === 'absolute';
 }
 
-function strongColorPreference(p: PlayerState): boolean {
+function hasStrongColorPreference(p: PlayerState): boolean {
   return p.preferenceStrength === 'strong';
 }
 
-function colorPreferencesAreCompatible(
+function hasCompatibleColorPreferences(
   a: PlayerState,
   b: PlayerState,
 ): boolean {
@@ -143,7 +146,7 @@ function invertColor(
 // Compatibility (C1 + C3)
 // ---------------------------------------------------------------------------
 
-function compatible(
+function isCompatible(
   a: PlayerState,
   b: PlayerState,
   playedRounds: number,
@@ -158,9 +161,9 @@ function compatible(
     a.preferredColor === b.preferredColor
   ) {
     const topThreshold = playedRounds / 2;
-    const aTop = a.score > topThreshold;
-    const bTop = b.score > topThreshold;
-    if (!(playedRounds >= expectedRounds - 1 && (aTop || bTop))) {
+    const isATop = a.score > topThreshold;
+    const isBTop = b.score > topThreshold;
+    if (!(playedRounds >= expectedRounds - 1 && (isATop || isBTop))) {
       return false;
     }
   }
@@ -179,15 +182,15 @@ function isByeCandidate(p: PlayerState, byeAssigneeScore: number): boolean {
 // DynamicUint bit helpers
 // ---------------------------------------------------------------------------
 
-function orBitAt(w: DynamicUint, shift: number, useAdd: boolean): void {
+function orBitAt(w: DynamicUint, shift: number, shouldUseAdd: boolean): void {
   if (shift < 32) {
     const bit = 1 << shift;
-    if (useAdd) w.add(bit);
+    if (shouldUseAdd) w.add(bit);
     else w.or(bit);
   } else {
     const b = DynamicUint.from(1);
     b.shiftGrow(shift);
-    if (useAdd) w.add(b);
+    if (shouldUseAdd) w.add(b);
     else w.or(b);
   }
 }
@@ -199,8 +202,8 @@ function orBitAt(w: DynamicUint, shift: number, useAdd: boolean): void {
 function computeEdgeWeight(
   hi: PlayerState,
   lo: PlayerState,
-  lowerInCurrent: boolean,
-  lowerInNext: boolean,
+  isLowerInCurrent: boolean,
+  isLowerInNext: boolean,
   byeAssigneeScore: number,
   playedRounds: number,
   expectedRounds: number,
@@ -208,7 +211,7 @@ function computeEdgeWeight(
   isSingleDownfloaterByeAssignee: boolean,
   unplayedGameRanks: Map<number, number>,
 ): DynamicUint {
-  if (!compatible(hi, lo, playedRounds, expectedRounds)) {
+  if (!isCompatible(hi, lo, playedRounds, expectedRounds)) {
     return DynamicUint.from(0);
   }
 
@@ -224,21 +227,21 @@ function computeEdgeWeight(
 
   // C6
   w.shiftGrow(scoreGroupSizeBits);
-  if (lowerInCurrent) w.or(1);
+  if (isLowerInCurrent) w.or(1);
 
   // C7
   w.shiftGrow(scoreGroupsShift);
-  if (lowerInCurrent) {
+  if (isLowerInCurrent) {
     orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, false);
   }
 
   // C8
   w.shiftGrow(scoreGroupSizeBits);
-  if (lowerInNext) w.or(1);
+  if (isLowerInNext) w.or(1);
 
   // C8b
   w.shiftGrow(scoreGroupsShift);
-  if (lowerInNext) {
+  if (isLowerInNext) {
     orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, false);
   }
 
@@ -259,41 +262,41 @@ function computeEdgeWeight(
   // C10
   w.shiftGrow(scoreGroupSizeBits);
   if (
-    lowerInCurrent &&
-    (!absoluteColorImbalance(lo) ||
-      !absoluteColorImbalance(hi) ||
+    isLowerInCurrent &&
+    (!hasAbsoluteColorImbalance(lo) ||
+      !hasAbsoluteColorImbalance(hi) ||
       lo.preferredColor !== hi.preferredColor)
   )
     w.or(1);
 
   // C11
   w.shiftGrow(scoreGroupSizeBits);
-  if (lowerInCurrent) {
+  if (isLowerInCurrent) {
     const loCI = Math.abs(lo.colorDiff);
     const hiCI = Math.abs(hi.colorDiff);
-    const ok =
-      !absoluteColorPreference(lo) ||
-      !absoluteColorPreference(hi) ||
+    const isOk =
+      !hasAbsoluteColorPreference(lo) ||
+      !hasAbsoluteColorPreference(hi) ||
       lo.preferredColor !== hi.preferredColor ||
       (loCI === hiCI
         ? repeatedColor(lo) === undefined ||
           repeatedColor(lo) !== repeatedColor(hi)
         : repeatedColor(loCI > hiCI ? hi : lo) !==
           invertColor(lo.preferredColor));
-    if (ok) w.or(1);
+    if (isOk) w.or(1);
   }
 
   // C12
   w.shiftGrow(scoreGroupSizeBits);
-  if (lowerInCurrent && colorPreferencesAreCompatible(lo, hi)) w.or(1);
+  if (isLowerInCurrent && hasCompatibleColorPreferences(lo, hi)) w.or(1);
 
   // C13
   w.shiftGrow(scoreGroupSizeBits);
   if (
-    lowerInCurrent &&
-    ((!strongColorPreference(lo) && !absoluteColorPreference(lo)) ||
-      (!strongColorPreference(hi) && !absoluteColorPreference(hi)) ||
-      (absoluteColorPreference(lo) && absoluteColorPreference(hi)) ||
+    isLowerInCurrent &&
+    ((!hasStrongColorPreference(lo) && !hasAbsoluteColorPreference(lo)) ||
+      (!hasStrongColorPreference(hi) && !hasAbsoluteColorPreference(hi)) ||
+      (hasAbsoluteColorPreference(lo) && hasAbsoluteColorPreference(hi)) ||
       lo.preferredColor !== hi.preferredColor)
   )
     w.or(1);
@@ -301,49 +304,55 @@ function computeEdgeWeight(
   // C14–C17
   if (playedRounds >= 1) {
     w.shiftGrow(scoreGroupSizeBits); // C14
-    if (lowerInCurrent) {
+    if (isLowerInCurrent) {
       if (getFloat(lo, 1) === 'down') w.or(1);
       if (hi.score <= lo.score && getFloat(hi, 1) === 'down') w.add(1);
     }
     w.shiftGrow(scoreGroupSizeBits); // C15
-    if (lowerInCurrent && !(hi.score > lo.score && getFloat(lo, 1) === 'up'))
+    if (isLowerInCurrent && !(hi.score > lo.score && getFloat(lo, 1) === 'up'))
       w.or(1);
   }
   if (playedRounds > 1) {
     w.shiftGrow(scoreGroupSizeBits); // C16
-    if (lowerInCurrent) {
+    if (isLowerInCurrent) {
       if (getFloat(lo, 2) === 'down') w.or(1);
       if (hi.score <= lo.score && getFloat(hi, 2) === 'down') w.add(1);
     }
     w.shiftGrow(scoreGroupSizeBits); // C17
-    if (lowerInCurrent && !(hi.score > lo.score && getFloat(lo, 2) === 'up'))
+    if (isLowerInCurrent && !(hi.score > lo.score && getFloat(lo, 2) === 'up'))
       w.or(1);
   }
 
   // C18–C21
   if (playedRounds >= 1) {
     w.shiftGrow(scoreGroupsShift); // C18
-    if (lowerInCurrent) {
+    if (isLowerInCurrent) {
       if (getFloat(lo, 1) === 'down')
         orBitAt(w, scoreGroupShifts.get(lo.score) ?? 0, true);
       if (getFloat(hi, 1) === 'down')
         orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, true);
     }
     w.shiftGrow(scoreGroupsShift); // C19
-    if (lowerInCurrent && !(getFloat(lo, 1) === 'up' && hi.score > lo.score)) {
+    if (
+      isLowerInCurrent &&
+      !(getFloat(lo, 1) === 'up' && hi.score > lo.score)
+    ) {
       orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, false);
     }
   }
   if (playedRounds > 1) {
     w.shiftGrow(scoreGroupsShift); // C20
-    if (lowerInCurrent) {
+    if (isLowerInCurrent) {
       if (getFloat(lo, 2) === 'down')
         orBitAt(w, scoreGroupShifts.get(lo.score) ?? 0, true);
       if (getFloat(hi, 2) === 'down')
         orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, true);
     }
     w.shiftGrow(scoreGroupsShift); // C21
-    if (lowerInCurrent && !(getFloat(lo, 2) === 'up' && hi.score > lo.score)) {
+    if (
+      isLowerInCurrent &&
+      !(getFloat(lo, 2) === 'up' && hi.score > lo.score)
+    ) {
       orBitAt(w, scoreGroupShifts.get(hi.score) ?? 0, false);
     }
   }
@@ -438,7 +447,7 @@ function buildFeasibilityWeight(
   expectedRounds: number,
   sgp: ScoreGroupParameters,
 ): DynamicUint {
-  if (!compatible(hi, lo, playedRounds, expectedRounds)) {
+  if (!isCompatible(hi, lo, playedRounds, expectedRounds)) {
     return DynamicUint.from(0);
   }
   const { scoreGroupShifts, scoreGroupSizeBits, scoreGroupsShift } = sgp;
@@ -498,7 +507,7 @@ function pair(
     a.score === b.score ? a.tpn - b.tpn : b.score - a.score,
   );
 
-  const needsBye = sorted.length % 2 === 1;
+  const isNeedsBye = sorted.length % 2 === 1;
   const sgp = computeScoreGroupParameters(sorted);
   const n = sorted.length;
 
@@ -509,14 +518,15 @@ function pair(
   let isSingleDownfloaterByeAssignee = false;
   const unplayedGameRanks = new Map<number, number>();
 
-  if (needsBye) {
+  if (isNeedsBye) {
     const topScore = sorted[0]?.score ?? 0;
     const feasEdges: [number, number, DynamicUint][] = [];
     for (let index = 0; index < n; index++) {
-      for (let index_ = 0; index_ < index; index_++) {
+      innerFeasLoop: for (let index_ = 0; index_ < index; index_++) {
         const hiPlayer = sorted[index_];
         const loPlayer = sorted[index];
-        if (hiPlayer === undefined || loPlayer === undefined) continue;
+        if (hiPlayer === undefined || loPlayer === undefined)
+          continue innerFeasLoop;
         const w = buildFeasibilityWeight(
           hiPlayer,
           loPlayer,
@@ -618,7 +628,10 @@ function pair(
     }
     trace({ groups, system: 'dutch', type: 'pairing:score-groups' });
   }
-  const scoreLevels = [...sgMap.keys()].toSorted((a, b) => b - a); // desc
+  const scoreLevels = sgMap
+    .keys()
+    .toArray()
+    .toSorted((a, b) => b - a); // desc
 
   // Score groups as arrays of indices into pairedSorted, ordered by score desc
   const scoreGroupArrays: number[][] = scoreLevels.map((sc) => {
@@ -777,15 +790,15 @@ function pair(
         const hiPlayer = pairedSorted[smallerGlobal]!;
 
         // lowerPlayerInCurrentBracket: largerLocalIdx < nextScoreGroupBegin
-        const lowerInCurrent = largerLocalIndex < nextScoreGroupBegin;
+        const isLowerInCurrent = largerLocalIndex < nextScoreGroupBegin;
         // lowerPlayerInNextBracket: largerLocalIdx >= nextScoreGroupBegin
-        const lowerInNext = largerLocalIndex >= nextScoreGroupBegin;
+        const isLowerInNext = largerLocalIndex >= nextScoreGroupBegin;
 
         const w = computeEdgeWeight(
           hiPlayer,
           loPlayer,
-          lowerInCurrent,
-          lowerInNext,
+          isLowerInCurrent,
+          isLowerInNext,
           byeAssigneeScore,
           playedRounds,
           expectedRounds,
@@ -941,8 +954,8 @@ function pair(
       }
 
       // Process each MDP in this score group
-      for (let pi = mdpIndex; pi < endIndex; pi++) {
-        if (remainingMatchedMDPs === 0) break;
+      mdpLoop: for (let pi = mdpIndex; pi < endIndex; pi++) {
+        if (remainingMatchedMDPs === 0) break mdpLoop;
 
         const playerLocal = pi;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -953,17 +966,17 @@ function pair(
           matched[playerGlobal] = true;
           remainingMDPs--;
           remainingMatchedMDPs--;
-          continue;
+          continue mdpLoop;
         }
 
         remainingMDPs--;
 
         const currentMatch = stableMatching[playerGlobal] ?? -1;
-        const currentlyMatchedToBracket =
+        const isCurrentlyMatchedToBracket =
           currentMatch >= scoreGroupBeginVertex &&
           currentMatch < nextScoreGroupBeginVertex;
 
-        if (!currentlyMatchedToBracket) {
+        if (!isCurrentlyMatchedToBracket) {
           // Try to match by boosting edges to current bracket members
           for (
             let opponentLocal = scoreGroupBegin;
@@ -987,11 +1000,11 @@ function pair(
         }
 
         const newMatch = stableMatching[playerGlobal] ?? -1;
-        const nowMatchedToBracket =
+        const isNowMatchedToBracket =
           newMatch >= scoreGroupBeginVertex &&
           newMatch < nextScoreGroupBeginVertex;
 
-        if (nowMatchedToBracket) {
+        if (isNowMatchedToBracket) {
           // Finalize that this MDP will be matched
           matched[playerGlobal] = true;
           remainingMatchedMDPs--;
@@ -1023,22 +1036,26 @@ function pair(
     // -----------------------------------------------------------------------
     // Choose opponents of MDPs (finalize MDP pairings)
     // -----------------------------------------------------------------------
-    for (let playerLocal = 0; playerLocal < scoreGroupBegin; playerLocal++) {
+    mdpFinalizeLoop: for (
+      let playerLocal = 0;
+      playerLocal < scoreGroupBegin;
+      playerLocal++
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const playerGlobal = playersByIndex[playerLocal]!;
-      if (!matched[playerGlobal]) continue;
+      if (matched[playerGlobal] !== true) continue mdpFinalizeLoop;
 
       // Boost edges by priority: earlier opponents (lower index in bracket) get more weight
       // bbpPairings iterates opponentIndex from nextScoreGroupBegin-1 down to scoreGroupBegin
       let addend = playersByIndex.length; // starts at total player count in bracket
-      for (
+      opponentFinalizeLoop: for (
         let opponentLocal = nextScoreGroupBegin - 1;
         opponentLocal >= scoreGroupBegin;
         opponentLocal--
       ) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const opponentGlobal = playersByIndex[opponentLocal]!;
-        if (matched[opponentGlobal]) continue;
+        if (matched[opponentGlobal] === true) continue opponentFinalizeLoop;
 
         const base = (
           baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[]
@@ -1085,7 +1102,7 @@ function pair(
     const remainder: number[] = [];
     let remainderPairs = 0;
 
-    for (
+    remainderBuildLoop: for (
       let playerLocal = scoreGroupBegin;
       playerLocal < nextScoreGroupBegin;
       playerLocal++
@@ -1096,7 +1113,7 @@ function pair(
 
       // Skip if matched to an MDP (match is below scoreGroupBeginVertex)
       if (matchGlobal >= 0 && matchGlobal < scoreGroupBeginVertex) {
-        continue;
+        continue remainderBuildLoop;
       }
 
       remainder.push(playerLocal);
@@ -1195,17 +1212,17 @@ function pair(
           stableMatching = runBlossom();
         }
 
-        const exchange =
+        const isExchange =
           (stableMatching[playerGlobal] ?? -1) <= playerGlobal ||
           (stableMatching[playerGlobal] ?? -1) >= nextScoreGroupBeginVertex;
-        if (exchange) exchangesRemaining--;
+        if (isExchange) exchangesRemaining--;
 
         for (let oIndex = pIndex + 1; oIndex < remainder.length; oIndex++) {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const opponentLocal = remainder[oIndex]!;
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const opponentGlobal = playersByIndex[opponentLocal]!;
-          if (exchange) {
+          if (isExchange) {
             (baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[])[
               playerLocal
             ] = DynamicUint.from(0);
@@ -1233,11 +1250,11 @@ function pair(
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const playerGlobal = playersByIndex[playerLocal]!;
 
-        const alreadyExchanged =
+        const isAlreadyExchanged =
           (stableMatching[playerGlobal] ?? -1) > playerGlobal &&
           (stableMatching[playerGlobal] ?? -1) < nextScoreGroupBeginVertex;
 
-        if (!alreadyExchanged) {
+        if (!isAlreadyExchanged) {
           for (let oIndex = pIndex + 1; oIndex < remainder.length; oIndex++) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const opponentLocal = remainder[oIndex]!;
@@ -1258,11 +1275,11 @@ function pair(
           stableMatching = runBlossom();
         }
 
-        const exchange =
+        const isExchange =
           (stableMatching[playerGlobal] ?? -1) > playerGlobal &&
           (stableMatching[playerGlobal] ?? -1) < nextScoreGroupBeginVertex;
 
-        if (exchange) {
+        if (isExchange) {
           exchangesRemaining--;
           for (let oIndex = 0; oIndex < pIndex; oIndex++) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -1288,7 +1305,7 @@ function pair(
           }
         }
 
-        if (!alreadyExchanged) {
+        if (!isAlreadyExchanged) {
           for (let oIndex = pIndex + 1; oIndex < remainder.length; oIndex++) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const opponentLocal = remainder[oIndex]!;
@@ -1328,15 +1345,15 @@ function pair(
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const opponentGlobal = playersByIndex[opponentLocal]!;
 
-        const playerNotMatched =
+        const isPlayerNotMatched =
           stableMatching[playerGlobal] === undefined ||
           (stableMatching[playerGlobal] ?? -1) <= playerGlobal ||
           (stableMatching[playerGlobal] ?? -1) >= nextScoreGroupBeginVertex;
-        const opponentMatched =
+        const isOpponentMatched =
           (stableMatching[opponentGlobal] ?? -1) > opponentGlobal &&
           (stableMatching[opponentGlobal] ?? -1) < nextScoreGroupBeginVertex;
 
-        if (playerNotMatched || opponentMatched) {
+        if (isPlayerNotMatched || isOpponentMatched) {
           (baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[])[
             playerLocal
           ] = DynamicUint.from(0);
@@ -1362,7 +1379,7 @@ function pair(
     // -----------------------------------------------------------------------
     currentPhase = 'bracket-remainder';
 
-    for (const playerLocal of remainder) {
+    remainderFinalLoop: for (const playerLocal of remainder) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const playerGlobal = playersByIndex[playerLocal]!;
 
@@ -1370,18 +1387,22 @@ function pair(
         (stableMatching[playerGlobal] ?? -1) <= playerGlobal ||
         (stableMatching[playerGlobal] ?? -1) >= nextScoreGroupBeginVertex
       ) {
-        continue;
+        continue remainderFinalLoop;
       }
 
       let addend = 0;
-      for (let oIndex = remainder.length - 1; oIndex >= 0; oIndex--) {
+      opponentFinalLoop: for (
+        let oIndex = remainder.length - 1;
+        oIndex >= 0;
+        oIndex--
+      ) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const opponentLocal = remainder[oIndex]!;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const opponentGlobal = playersByIndex[opponentLocal]!;
 
-        if (opponentLocal <= playerLocal || matched[opponentGlobal]) {
-          continue;
+        if (opponentLocal <= playerLocal || matched[opponentGlobal] === true) {
+          continue opponentFinalLoop;
         }
 
         const base = (
@@ -1401,8 +1422,8 @@ function pair(
       if (
         matchGlobal >= 0 &&
         matchGlobal !== playerGlobal &&
-        !matched[playerGlobal] &&
-        !matched[matchGlobal]
+        matched[playerGlobal] !== true &&
+        matched[matchGlobal] !== true
       ) {
         matched[playerGlobal] = true;
         matched[matchGlobal] = true;
@@ -1439,14 +1460,14 @@ function pair(
 
     // Preliminary (may be set to false in the carry-forward loop)
     isSingleDownfloaterByeAssignee =
-      needsBye &&
+      isNeedsBye &&
       currentGroupScore >= 0 &&
       byeAssigneeScore >= currentGroupScore;
 
     for (const [playerLocal, element] of playersByIndex.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const playerGlobal = element!;
-      if (playerLocal < nextScoreGroupBegin && matched[playerGlobal]) {
+      if (playerLocal < nextScoreGroupBegin && matched[playerGlobal] === true) {
         // Player was finalized — noop (matchedPairs already recorded)
         void 0;
       } else {
@@ -1483,16 +1504,16 @@ function pair(
   // fall back to a full global re-match of ALL originally paired players.
   if (playersByIndex.length >= 2) {
     const fallbackEdges: [number, number, DynamicUint][] = [];
-    for (let ii = 0; ii < playersByIndex.length; ii++) {
+    fallbackOuterLoop: for (let ii = 0; ii < playersByIndex.length; ii++) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const index = playersByIndex[ii]!;
       const hiPlayer = pairedSorted[index];
-      if (hiPlayer === undefined) continue;
-      for (let jj = 0; jj < ii; jj++) {
+      if (hiPlayer === undefined) continue fallbackOuterLoop;
+      fallbackInnerLoop: for (let jj = 0; jj < ii; jj++) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const index_ = playersByIndex[jj]!;
         const loPlayer = pairedSorted[index_];
-        if (loPlayer === undefined) continue;
+        if (loPlayer === undefined) continue fallbackInnerLoop;
         const w = computeEdgeWeight(
           loPlayer,
           hiPlayer,
@@ -1567,29 +1588,33 @@ function pair(
 
     // Recompute score levels using the original single-pass approach
     const sgMapGlobal = scoreGroups(pairedSorted);
-    const scorelevelsGlobal = [...sgMapGlobal.keys()].toSorted((a, b) => b - a);
+    const scorelevelsGlobal = sgMapGlobal
+      .keys()
+      .toArray()
+      .toSorted((a, b) => b - a);
     const scoreLevelGlobal = new Map<string, number>();
     for (const [lvl, sc] of scorelevelsGlobal.entries()) {
-      for (const p of sgMapGlobal.get(sc) ?? []) {
+      const scPlayers = sgMapGlobal.get(sc) ?? [];
+      for (const p of scPlayers) {
         scoreLevelGlobal.set(p.id, lvl);
       }
     }
 
     const globalEdges: [number, number, DynamicUint][] = [];
     for (let index = 0; index < np; index++) {
-      for (let index_ = 0; index_ < index; index_++) {
+      globalInnerLoop: for (let index_ = 0; index_ < index; index_++) {
         const hi = pairedSorted[index_];
         const lo = pairedSorted[index];
-        if (hi === undefined || lo === undefined) continue;
+        if (hi === undefined || lo === undefined) continue globalInnerLoop;
         const hiLevel = scoreLevelGlobal.get(hi.id) ?? 0;
         const loLevel = scoreLevelGlobal.get(lo.id) ?? 0;
-        const lowerInCurrent = hiLevel === loLevel;
-        const lowerInNext = loLevel === hiLevel + 1;
+        const isLowerInCurrent = hiLevel === loLevel;
+        const isLowerInNext = loLevel === hiLevel + 1;
         const w = computeEdgeWeight(
           hi,
           lo,
-          lowerInCurrent,
-          lowerInNext,
+          isLowerInCurrent,
+          isLowerInNext,
           byeAssigneeScore,
           playedRounds,
           expectedRounds,
@@ -1662,7 +1687,7 @@ function pair(
 
   // The bye recipient is the unmatched player (odd count only)
   let byeId: string | undefined;
-  if (needsBye) {
+  if (isNeedsBye) {
     for (let index = 0; index < np; index++) {
       if (!pairedGlobals.has(index)) {
         byeId = pairedSorted[index]?.id;
