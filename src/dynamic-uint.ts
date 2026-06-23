@@ -172,7 +172,7 @@ class DynamicUint {
       } else {
         const lo = (this.#data[sourceIndex] ?? 0) << bitShift;
         const hiSource =
-          sourceIndex - 1 >= 0 ? (this.#data[sourceIndex - 1] ?? 0) : 0;
+          sourceIndex >= 1 ? (this.#data[sourceIndex - 1] ?? 0) : 0;
         const hi = hiSource >>> (32 - bitShift);
         this.#data[index] = (lo | hi) >>> 0;
       }

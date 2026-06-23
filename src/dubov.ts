@@ -298,13 +298,13 @@ function pair(
   const stateById = new Map<string, PlayerState>();
   for (const s of sorted) stateById.set(s.id, s);
 
-  const needsBye = sorted.length % 2 === 1;
+  const isNeedsBye = sorted.length % 2 === 1;
 
   // -------------------------------------------------------------------------
   // Determine bye assignee
   // -------------------------------------------------------------------------
   let byeState: PlayerState | undefined;
-  if (needsBye) {
+  if (isNeedsBye) {
     byeState = assignBye(sorted, rounds, dubovByeTiebreak);
   }
 

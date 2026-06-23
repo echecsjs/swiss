@@ -45,7 +45,7 @@ describe('dutch', () => {
       };
       const result = pair(FOUR_PLAYERS, [round1]);
       const pairs = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(pairs).not.toContain('A-C');
       expect(pairs).not.toContain('B-D');

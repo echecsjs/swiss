@@ -17,7 +17,7 @@ describe('dubov', () => {
       const result = pair(FOUR_PLAYERS, []);
       expect(result.games).toHaveLength(2);
       const ids = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(ids).toContain('A-B');
       expect(ids).toContain('C-D');
@@ -41,7 +41,7 @@ describe('dubov', () => {
       };
       const result = pair(FOUR_PLAYERS, [round1]);
       const pairs = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(pairs).not.toContain('A-B');
       expect(pairs).not.toContain('C-D');

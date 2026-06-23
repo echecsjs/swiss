@@ -18,7 +18,7 @@ describe('burstein', () => {
       expect(result.games).toHaveLength(2);
       expect(result.byes).toHaveLength(0);
       const ids = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(ids).toContain('A-D');
       expect(ids).toContain('B-C');
@@ -42,7 +42,7 @@ describe('burstein', () => {
       };
       const result = pair(FOUR_PLAYERS, [round1]);
       const pairs = result.games.map((p) =>
-        [p.white, p.black].toSorted().join('-'),
+        [p.white, p.black].toSorted((a, b) => a.localeCompare(b)).join('-'),
       );
       expect(pairs).not.toContain('A-D');
       expect(pairs).not.toContain('B-C');

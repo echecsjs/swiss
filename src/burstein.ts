@@ -300,7 +300,7 @@ function pair(
     return bursteinRankCompare(a, b, buchholzById, sbById);
   });
 
-  const needsBye = sorted.length % 2 === 1;
+  const isNeedsBye = sorted.length % 2 === 1;
 
   // -------------------------------------------------------------------------
   // Determine bye assignee
@@ -322,7 +322,7 @@ function pair(
   }
 
   let byeState: PlayerState | undefined;
-  if (needsBye) {
+  if (isNeedsBye) {
     byeState = assignBye(sorted, rounds, bursteinByeTiebreak);
   }
 

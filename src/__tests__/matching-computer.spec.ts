@@ -378,9 +378,9 @@ function getMatching(graph: Graph): number[] {
       : baseIndex; // exposed → self
     // Walk the vertex list for the remaining matched pairs.
     let v = rb.rootChild.vertexListHead.nextVertex;
-    while (v !== undefined) {
+    vertexWalk: while (v !== undefined) {
       const partner = v.nextVertex;
-      if (partner === undefined) break;
+      if (partner === undefined) break vertexWalk;
       result[v.vertexIndex] = partner.vertexIndex;
       result[partner.vertexIndex] = v.vertexIndex;
       v = partner.nextVertex;

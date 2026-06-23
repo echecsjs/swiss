@@ -28,10 +28,10 @@ function buildBlossomEdges(
 ): [number, number, DynamicUint][] {
   const edges: [number, number, DynamicUint][] = [];
   for (let index = 0; index < players.length; index++) {
-    for (let index_ = index + 1; index_ < players.length; index_++) {
+    innerLoop: for (let index_ = index + 1; index_ < players.length; index_++) {
       const a = players.at(index);
       const b = players.at(index_);
-      if (a === undefined || b === undefined) continue;
+      if (a === undefined || b === undefined) continue innerLoop;
       const weight = buildEdgeWeight(criteria, a, b, context);
       if (!weight.isZero()) {
         edges.push([index, index_, weight]);
@@ -48,7 +48,7 @@ function runBlossom(
   players: PlayerState[],
   edges: [number, number, DynamicUint][],
   system: string,
-  maxcardinality = true,
+  shouldUseMaxCardinality = true,
   trace?: TraceCallback,
 ): Map<string, string> {
   if (players.length === 0) return new Map();
@@ -61,7 +61,7 @@ function runBlossom(
       vertexCount: players.length,
     });
   }
-  const matching = maxWeightMatching(edges, maxcardinality, trace);
+  const matching = maxWeightMatching(edges, shouldUseMaxCardinality, trace);
   const result = new Map<string, string>();
   for (const [index, index_] of matching.entries()) {
     if (index_ !== undefined && index_ !== -1 && index_ > index) {

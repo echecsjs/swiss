@@ -338,7 +338,9 @@ describe('swissTeam', () => {
       const allPairs = new Set<string>();
       for (const roundData of rounds) {
         for (const g of roundData.games) {
-          const key = [g.white, g.black].toSorted().join('-');
+          const key = [g.white, g.black]
+            .toSorted((a, b) => a.localeCompare(b))
+            .join('-');
           expect(allPairs.has(key)).toBe(false);
           allPairs.add(key);
         }

@@ -56,6 +56,7 @@ export default typescript.config(
       'no-console': 'warn',
       'sort-imports': ['error', { ignoreDeclarationSort: true }],
       'sort-keys': 'error',
+      'unicorn/consistent-class-member-order': 'off',
       'unicorn/filename-case': [
         'error',
         {

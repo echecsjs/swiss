@@ -34,9 +34,9 @@ function makeAllocateTeamColors(
     b: PlayerState,
   ): { black: string; white: string } {
     // Determine first-team: higher score wins; ties broken by smaller TPN.
-    const firstIsA =
+    const isFirstIsA =
       a.score > b.score || (a.score === b.score && a.tpn < b.tpn);
-    const [first, other] = firstIsA ? [a, b] : [b, a];
+    const [first, other] = isFirstIsA ? [a, b] : [b, a];
 
     const firstHistory = matchColorHistory(first.id, rounds);
     const otherHistory = matchColorHistory(other.id, rounds);
@@ -56,7 +56,7 @@ function makeAllocateTeamColors(
     if (firstHistory.length === 0 && otherHistory.length === 0) {
       // First-team with odd 1-based TPN gets initial color (White).
       // First-team with even 1-based TPN gets opposite (Black).
-      return first.tpn % 2 === 1 ? firstWhite() : firstBlack();
+      return (first.tpn % 2 === 1 ? firstWhite : firstBlack)();
     }
 
     // 4.3.2 — Only one team has a Type A color preference → grant it.
@@ -64,11 +64,11 @@ function makeAllocateTeamColors(
     const otherPref = typeAColorPreference(other.id, rounds);
 
     if (firstPref !== undefined && otherPref === undefined) {
-      return firstPref === 'white' ? firstWhite() : firstBlack();
+      return (firstPref === 'white' ? firstWhite : firstBlack)();
     }
     if (firstPref === undefined && otherPref !== undefined) {
       // Grant other team's preference.
-      return otherPref === 'white' ? firstBlack() : firstWhite();
+      return (otherPref === 'white' ? firstBlack : firstWhite)();
     }
 
     // 4.3.3 — Both teams have opposite preferences → grant both.
@@ -78,7 +78,7 @@ function makeAllocateTeamColors(
       firstPref !== otherPref
     ) {
       // They have opposite preferences: grant each their preference.
-      return firstPref === 'white' ? firstWhite() : firstBlack();
+      return (firstPref === 'white' ? firstWhite : firstBlack)();
     }
 
     // 4.3.4 — (Type B only, skip for v1)
@@ -94,7 +94,7 @@ function makeAllocateTeamColors(
 
     if (cdFirst !== cdOther) {
       // Lower CD gets White (more negative → more black history → wants White).
-      return cdFirst < cdOther ? firstWhite() : firstBlack();
+      return (cdFirst < cdOther ? firstWhite : firstBlack)();
     }
 
     // 4.3.6 — Alternate from most recent time one had White and other Black.
@@ -108,25 +108,25 @@ function makeAllocateTeamColors(
         firstColor !== otherColor
       ) {
         // Alternate from that divergence: if first had White, first gets Black now.
-        return firstColor === 'white' ? firstBlack() : firstWhite();
+        return (firstColor === 'white' ? firstBlack : firstWhite)();
       }
     }
 
     // 4.3.7 — Grant first-team's preference (Type A only).
     if (firstPref !== undefined) {
-      return firstPref === 'white' ? firstWhite() : firstBlack();
+      return (firstPref === 'white' ? firstWhite : firstBlack)();
     }
 
     // 4.3.8 — Alternate first-team's color from last round.
     const firstLast = firstHistory.at(-1);
     if (firstLast !== undefined) {
-      return firstLast === 'white' ? firstBlack() : firstWhite();
+      return (firstLast === 'white' ? firstBlack : firstWhite)();
     }
 
     // 4.3.9 — Alternate other team's color from last round.
     const otherLast = otherHistory.at(-1);
     if (otherLast !== undefined) {
-      return otherLast === 'white' ? firstWhite() : firstBlack();
+      return (otherLast === 'white' ? firstWhite : firstBlack)();
     }
 
     // Fallback: first-team gets White.
