@@ -64,13 +64,15 @@ function runBlossom(
   const matching = maxWeightMatching(edges, shouldUseMaxCardinality, trace);
   const result = new Map<string, string>();
   for (const [index, index_] of matching.entries()) {
-    if (index_ !== undefined && index_ !== -1 && index_ > index) {
-      const a = players.at(index);
-      const b = players.at(index_);
-      if (a === undefined || b === undefined) continue;
-      result.set(a.id, b.id);
-      result.set(b.id, a.id);
+    if (!(index_ !== undefined && index_ !== -1 && index_ > index)) {
+      continue;
     }
+
+    const a = players.at(index);
+    const b = players.at(index_);
+    if (a === undefined || b === undefined) continue;
+    result.set(a.id, b.id);
+    result.set(b.id, a.id);
   }
   if (trace) {
     const pairs: [string, string][] = [];

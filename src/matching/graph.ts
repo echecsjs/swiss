@@ -167,42 +167,42 @@ class Graph implements GraphLike {
     const snapshot = [...this.rootBlossomPool];
     for (const rootBlossom of snapshot) {
       if (
-        !rootBlossom.baseVertexMatch &&
-        !rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
+        !(
+          !rootBlossom.baseVertexMatch &&
+          !rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
+        )
       ) {
-        // dualVariable is odd — fix parity.
-        let adjustableBlossom: Blossom = rootBlossom.rootChild;
-        setPointersFromAncestor(
-          rootBlossom.baseVertex,
-          adjustableBlossom,
-          true,
-        );
+        continue;
+      }
 
-        // Walk down to the deepest blossom with positive dual (or a vertex).
-        while (
-          !adjustableBlossom.isVertex &&
-          (adjustableBlossom as ParentBlossom).dualVariable.isZero()
-        ) {
-          adjustableBlossom = (adjustableBlossom as ParentBlossom).subblossom;
-        }
+      // dualVariable is odd — fix parity.
+      let adjustableBlossom: Blossom = rootBlossom.rootChild;
+      setPointersFromAncestor(rootBlossom.baseVertex, adjustableBlossom, true);
 
-        // This modifies rootBlossoms (splits the blossom).
-        // Access private method via bracket notation (same pattern as C++ friend).
-        rootBlossom['freeAncestorOfBase'](adjustableBlossom, this);
+      // Walk down to the deepest blossom with positive dual (or a vertex).
+      while (
+        !adjustableBlossom.isVertex &&
+        (adjustableBlossom as ParentBlossom).dualVariable.isZero()
+      ) {
+        adjustableBlossom = (adjustableBlossom as ParentBlossom).subblossom;
+      }
 
-        if (!adjustableBlossom.isVertex) {
-          // ParentBlossom dual -= 2.
-          (adjustableBlossom as ParentBlossom).dualVariable.subtract(2);
-        }
+      // This modifies rootBlossoms (splits the blossom).
+      // Access private method via bracket notation (same pattern as C++ friend).
+      rootBlossom['freeAncestorOfBase'](adjustableBlossom, this);
 
-        // Add 1 to every vertex's dual in the adjustable blossom.
-        for (
-          let v: Vertex | undefined = adjustableBlossom.vertexListHead;
-          v;
-          v = v.nextVertex
-        ) {
-          v.dualVariable.add(1);
-        }
+      if (!adjustableBlossom.isVertex) {
+        // ParentBlossom dual -= 2.
+        (adjustableBlossom as ParentBlossom).dualVariable.subtract(2);
+      }
+
+      // Add 1 to every vertex's dual in the adjustable blossom.
+      for (
+        let v: Vertex | undefined = adjustableBlossom.vertexListHead;
+        v;
+        v = v.nextVertex
+      ) {
+        v.dualVariable.add(1);
       }
     }
 
@@ -245,12 +245,16 @@ class Graph implements GraphLike {
     let minOuterDualVariableVertex: Vertex | undefined;
     for (const vertex of this.vertices) {
       if (
-        vertex.rootBlossom!.label === Label.OUTER &&
-        vertex.dualVariable.lt(minOuterDualVariable)
+        !(
+          vertex.rootBlossom!.label === Label.OUTER &&
+          vertex.dualVariable.lt(minOuterDualVariable)
+        )
       ) {
-        minOuterDualVariable.copyFrom(vertex.dualVariable);
-        minOuterDualVariableVertex = vertex;
+        continue;
       }
+
+      minOuterDualVariable.copyFrom(vertex.dualVariable);
+      minOuterDualVariableVertex = vertex;
     }
 
     // If no OUTER vertices, no augmentation possible.
@@ -280,12 +284,16 @@ class Graph implements GraphLike {
     let minOuterOuterEdgeResistanceRootBlossom: RootBlossom | undefined;
     for (const rb of this.rootBlossomPool) {
       if (
-        rb.label === Label.OUTER &&
-        rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+        !(
+          rb.label === Label.OUTER &&
+          rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+        )
       ) {
-        minOuterOuterEdgeResistance.copyFrom(rb.minOuterEdgeResistance);
-        minOuterOuterEdgeResistanceRootBlossom = rb;
+        continue;
       }
+
+      minOuterOuterEdgeResistance.copyFrom(rb.minOuterEdgeResistance);
+      minOuterOuterEdgeResistanceRootBlossom = rb;
     }
 
     // -------------------------------------------------------------------------
@@ -313,13 +321,18 @@ class Graph implements GraphLike {
       let minInnerOuterEdgeResistanceVertex: Vertex | undefined;
       for (const vertex of this.vertices) {
         if (
-          (vertex.rootBlossom!.label === Label.FREE ||
-            vertex.rootBlossom!.label === Label.ZERO) &&
-          vertex.minOuterEdgeResistance.lt(minInnerOuterEdgeResistance)
+          !(
+            (vertex.rootBlossom!.label === Label.FREE ||
+              vertex.rootBlossom!.label === Label.ZERO) &&
+            vertex.minOuterEdgeResistance.lt(minInnerOuterEdgeResistance)
+          )
         ) {
-          minInnerOuterEdgeResistance.copyFrom(vertex.minOuterEdgeResistance);
-          minInnerOuterEdgeResistanceVertex = vertex;
+          // eslint-disable-next-line unicorn/no-break-in-nested-loop
+          continue;
         }
+
+        minInnerOuterEdgeResistance.copyFrom(vertex.minOuterEdgeResistance);
+        minInnerOuterEdgeResistanceVertex = vertex;
       }
 
       // Compute dual adjustment:
@@ -548,10 +561,13 @@ class Graph implements GraphLike {
             v;
             v = v.nextVertex
           ) {
-            if (v.dualVariable.lt(minOuterDualVariable)) {
-              minOuterDualVariable.copyFrom(v.dualVariable);
-              minOuterDualVariableVertex = v;
+            if (!v.dualVariable.lt(minOuterDualVariable)) {
+              // eslint-disable-next-line unicorn/no-break-in-nested-loop
+              continue;
             }
+
+            minOuterDualVariable.copyFrom(v.dualVariable);
+            minOuterDualVariableVertex = v;
           }
 
           // Re-initialize minOuterOuterEdgeResistance.
@@ -559,12 +575,17 @@ class Graph implements GraphLike {
           minOuterOuterEdgeResistanceRootBlossom = undefined;
           for (const rb of this.rootBlossomPool) {
             if (
-              rb.label === Label.OUTER &&
-              rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+              !(
+                rb.label === Label.OUTER &&
+                rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+              )
             ) {
-              minOuterOuterEdgeResistance.copyFrom(rb.minOuterEdgeResistance);
-              minOuterOuterEdgeResistanceRootBlossom = rb;
+              // eslint-disable-next-line unicorn/no-break-in-nested-loop
+              continue;
             }
+
+            minOuterOuterEdgeResistance.copyFrom(rb.minOuterEdgeResistance);
+            minOuterOuterEdgeResistanceRootBlossom = rb;
           }
 
           // Re-initialize minInnerDualVariable.
@@ -618,10 +639,13 @@ class Graph implements GraphLike {
           v;
           v = v.nextVertex
         ) {
-          if (v.dualVariable.lt(minOuterDualVariable)) {
-            minOuterDualVariable.copyFrom(v.dualVariable);
-            minOuterDualVariableVertex = v;
+          if (!v.dualVariable.lt(minOuterDualVariable)) {
+            // eslint-disable-next-line unicorn/no-break-in-nested-loop
+            continue;
           }
+
+          minOuterDualVariable.copyFrom(v.dualVariable);
+          minOuterDualVariableVertex = v;
         }
 
         // Update minOuterOuterEdgeResistance.
@@ -776,10 +800,13 @@ class Graph implements GraphLike {
               v;
               v = v.nextVertex
             ) {
-              if (v.dualVariable.lt(minOuterDualVariable)) {
-                minOuterDualVariable.copyFrom(v.dualVariable);
-                minOuterDualVariableVertex = v;
+              if (!v.dualVariable.lt(minOuterDualVariable)) {
+                // eslint-disable-next-line unicorn/no-break-in-nested-loop
+                continue;
               }
+
+              minOuterDualVariable.copyFrom(v.dualVariable);
+              minOuterDualVariableVertex = v;
             }
             if (newRb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)) {
               minOuterOuterEdgeResistance.copyFrom(
@@ -967,13 +994,15 @@ class Graph implements GraphLike {
   ): void {
     const minValue = this.aboveMaxEdgeWeight.clone();
     for (const rb of this.rootBlossomPool) {
-      if (rb.label === Label.INNER && !rb.rootChild.isVertex) {
-        const pb = rb.rootChild as ParentBlossom;
-        if (pb.dualVariable.lt(minValue)) {
-          minValue.copyFrom(pb.dualVariable);
-          setBlossom(pb);
-          setValue(pb.dualVariable);
-        }
+      if (!(rb.label === Label.INNER && !rb.rootChild.isVertex)) {
+        continue;
+      }
+
+      const pb = rb.rootChild as ParentBlossom;
+      if (pb.dualVariable.lt(minValue)) {
+        minValue.copyFrom(pb.dualVariable);
+        setBlossom(pb);
+        setValue(pb.dualVariable);
       }
     }
   }

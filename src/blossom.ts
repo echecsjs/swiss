@@ -530,14 +530,18 @@ function maxWeightMatching(
         const loopBlossom = children[jmod2]!;
         if (labels[loopBlossom] === 1) {
           index += jstep;
+
           continue;
         }
         let labeledVertex = -1;
         leafLoop: for (const leaf of blossomLeaves(loopBlossom)) {
-          if (labels[leaf] !== 0) {
-            labeledVertex = leaf;
-            break leafLoop;
+          if (labels[leaf] === 0) {
+            // eslint-disable-next-line unicorn/no-break-in-nested-loop
+            continue;
           }
+
+          labeledVertex = leaf;
+          break leafLoop;
         }
         if (labeledVertex >= 0) {
           labels[labeledVertex] = 0;
@@ -756,35 +760,41 @@ function maxWeightMatching(
           candidateDelta = dual[v]!.clone();
     }
     for (let v = 0; v < vertexCount; v++) {
-      if (labels[vertexTopBlossom[v]!] === 0 && bestEdge[v] !== -1) {
-        const candidateDeltaValue = slack(bestEdge[v]!);
-        if (
-          deltaType === -1 ||
-          candidateDeltaValue.compareTo(candidateDelta) < 0
-        ) {
-          candidateDelta = candidateDeltaValue;
-          deltaType = 2;
-          deltaEdge = bestEdge[v]!;
-        }
+      if (!(labels[vertexTopBlossom[v]!] === 0 && bestEdge[v] !== -1)) {
+        continue;
+      }
+
+      const candidateDeltaValue = slack(bestEdge[v]!);
+      if (
+        deltaType === -1 ||
+        candidateDeltaValue.compareTo(candidateDelta) < 0
+      ) {
+        candidateDelta = candidateDeltaValue;
+        deltaType = 2;
+        deltaEdge = bestEdge[v]!;
       }
     }
     for (let blossomIndex = 0; blossomIndex < 2 * vertexCount; blossomIndex++) {
       if (
-        blossomParent[blossomIndex] === -1 &&
-        labels[blossomIndex] === 1 &&
-        bestEdge[blossomIndex] !== -1
+        !(
+          blossomParent[blossomIndex] === -1 &&
+          labels[blossomIndex] === 1 &&
+          bestEdge[blossomIndex] !== -1
+        )
       ) {
-        const candidateDeltaValue = slack(bestEdge[blossomIndex]!)
-          .clone()
-          .shiftRight(1);
-        if (
-          deltaType === -1 ||
-          candidateDeltaValue.compareTo(candidateDelta) < 0
-        ) {
-          candidateDelta = candidateDeltaValue;
-          deltaType = 3;
-          deltaEdge = bestEdge[blossomIndex]!;
-        }
+        continue;
+      }
+
+      const candidateDeltaValue = slack(bestEdge[blossomIndex]!)
+        .clone()
+        .shiftRight(1);
+      if (
+        deltaType === -1 ||
+        candidateDeltaValue.compareTo(candidateDelta) < 0
+      ) {
+        candidateDelta = candidateDeltaValue;
+        deltaType = 3;
+        deltaEdge = bestEdge[blossomIndex]!;
       }
     }
     for (
@@ -793,15 +803,20 @@ function maxWeightMatching(
       blossomIndex++
     ) {
       if (
-        blossomBase[blossomIndex]! >= 0 &&
-        blossomParent[blossomIndex] === -1 &&
-        labels[blossomIndex] === 2 &&
-        (deltaType === -1 || dual[blossomIndex]!.compareTo(candidateDelta) < 0)
+        !(
+          blossomBase[blossomIndex]! >= 0 &&
+          blossomParent[blossomIndex] === -1 &&
+          labels[blossomIndex] === 2 &&
+          (deltaType === -1 ||
+            dual[blossomIndex]!.compareTo(candidateDelta) < 0)
+        )
       ) {
-        candidateDelta = dual[blossomIndex]!.clone();
-        deltaType = 4;
-        deltaBlossom = blossomIndex;
+        continue;
       }
+
+      candidateDelta = dual[blossomIndex]!.clone();
+      deltaType = 4;
+      deltaBlossom = blossomIndex;
     }
 
     if (deltaType === -1) {

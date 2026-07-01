@@ -476,10 +476,12 @@ function finalizePairMC(
   const one = DynamicUint.from(1);
   const zero = DynamicUint.from(0);
   for (let index = 0; index < np; index++) {
-    if (index !== v1 && index !== v2) {
-      mc.setEdgeWeight(v1, index, zero.clone());
-      mc.setEdgeWeight(v2, index, zero.clone());
+    if (!(index !== v1 && index !== v2)) {
+      continue;
     }
+
+    mc.setEdgeWeight(v1, index, zero.clone());
+    mc.setEdgeWeight(v2, index, zero.clone());
   }
   mc.setEdgeWeight(v1, v2, one);
 }
@@ -1689,10 +1691,12 @@ function pair(
   let byeId: string | undefined;
   if (isNeedsBye) {
     for (let index = 0; index < np; index++) {
-      if (!pairedGlobals.has(index)) {
-        byeId = pairedSorted[index]?.id;
-        break;
+      if (pairedGlobals.has(index)) {
+        continue;
       }
+
+      byeId = pairedSorted[index]?.id;
+      break;
     }
     if (trace && byeId !== undefined) {
       trace({
