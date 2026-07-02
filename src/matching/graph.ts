@@ -166,12 +166,10 @@ class Graph implements GraphLike {
     // Iterate over a snapshot because freeAncestorOfBase modifies the pool.
     const snapshot = [...this.rootBlossomPool];
     for (const rootBlossom of snapshot) {
-      if (
-        !(
-          !rootBlossom.baseVertexMatch &&
-          !rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
-        )
-      ) {
+      if (!(
+        !rootBlossom.baseVertexMatch &&
+        !rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
+      )) {
         continue;
       }
 
@@ -244,12 +242,10 @@ class Graph implements GraphLike {
     const minOuterDualVariable = this.aboveMaxEdgeWeight.clone();
     let minOuterDualVariableVertex: Vertex | undefined;
     for (const vertex of this.vertices) {
-      if (
-        !(
-          vertex.rootBlossom!.label === Label.OUTER &&
-          vertex.dualVariable.lt(minOuterDualVariable)
-        )
-      ) {
+      if (!(
+        vertex.rootBlossom!.label === Label.OUTER &&
+        vertex.dualVariable.lt(minOuterDualVariable)
+      )) {
         continue;
       }
 
@@ -283,12 +279,10 @@ class Graph implements GraphLike {
     const minOuterOuterEdgeResistance = this.aboveMaxEdgeWeight.clone();
     let minOuterOuterEdgeResistanceRootBlossom: RootBlossom | undefined;
     for (const rb of this.rootBlossomPool) {
-      if (
-        !(
-          rb.label === Label.OUTER &&
-          rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
-        )
-      ) {
+      if (!(
+        rb.label === Label.OUTER &&
+        rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+      )) {
         continue;
       }
 
@@ -320,13 +314,11 @@ class Graph implements GraphLike {
       const minInnerOuterEdgeResistance = this.aboveMaxEdgeWeight.clone();
       let minInnerOuterEdgeResistanceVertex: Vertex | undefined;
       for (const vertex of this.vertices) {
-        if (
-          !(
-            (vertex.rootBlossom!.label === Label.FREE ||
-              vertex.rootBlossom!.label === Label.ZERO) &&
-            vertex.minOuterEdgeResistance.lt(minInnerOuterEdgeResistance)
-          )
-        ) {
+        if (!(
+          (vertex.rootBlossom!.label === Label.FREE ||
+            vertex.rootBlossom!.label === Label.ZERO) &&
+          vertex.minOuterEdgeResistance.lt(minInnerOuterEdgeResistance)
+        )) {
           // eslint-disable-next-line unicorn/no-break-in-nested-loop
           continue;
         }
@@ -574,12 +566,10 @@ class Graph implements GraphLike {
           minOuterOuterEdgeResistance.copyFrom(this.aboveMaxEdgeWeight);
           minOuterOuterEdgeResistanceRootBlossom = undefined;
           for (const rb of this.rootBlossomPool) {
-            if (
-              !(
-                rb.label === Label.OUTER &&
-                rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
-              )
-            ) {
+            if (!(
+              rb.label === Label.OUTER &&
+              rb.minOuterEdgeResistance.lt(minOuterOuterEdgeResistance)
+            )) {
               // eslint-disable-next-line unicorn/no-break-in-nested-loop
               continue;
             }

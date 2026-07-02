@@ -775,13 +775,11 @@ function maxWeightMatching(
       }
     }
     for (let blossomIndex = 0; blossomIndex < 2 * vertexCount; blossomIndex++) {
-      if (
-        !(
-          blossomParent[blossomIndex] === -1 &&
-          labels[blossomIndex] === 1 &&
-          bestEdge[blossomIndex] !== -1
-        )
-      ) {
+      if (!(
+        blossomParent[blossomIndex] === -1 &&
+        labels[blossomIndex] === 1 &&
+        bestEdge[blossomIndex] !== -1
+      )) {
         continue;
       }
 
@@ -802,15 +800,12 @@ function maxWeightMatching(
       blossomIndex < 2 * vertexCount;
       blossomIndex++
     ) {
-      if (
-        !(
-          blossomBase[blossomIndex]! >= 0 &&
-          blossomParent[blossomIndex] === -1 &&
-          labels[blossomIndex] === 2 &&
-          (deltaType === -1 ||
-            dual[blossomIndex]!.compareTo(candidateDelta) < 0)
-        )
-      ) {
+      if (!(
+        blossomBase[blossomIndex]! >= 0 &&
+        blossomParent[blossomIndex] === -1 &&
+        labels[blossomIndex] === 2 &&
+        (deltaType === -1 || dual[blossomIndex]!.compareTo(candidateDelta) < 0)
+      )) {
         continue;
       }
 
