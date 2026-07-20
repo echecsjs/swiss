@@ -760,7 +760,7 @@ function maxWeightMatching(
           candidateDelta = dual[v]!.clone();
     }
     for (let v = 0; v < vertexCount; v++) {
-      if (!(labels[vertexTopBlossom[v]!] === 0 && bestEdge[v] !== -1)) {
+      if (labels[vertexTopBlossom[v]!] !== 0 || bestEdge[v] === -1) {
         continue;
       }
 
@@ -775,11 +775,10 @@ function maxWeightMatching(
       }
     }
     for (let blossomIndex = 0; blossomIndex < 2 * vertexCount; blossomIndex++) {
-      if (!(
-        blossomParent[blossomIndex] === -1 &&
-        labels[blossomIndex] === 1 &&
-        bestEdge[blossomIndex] !== -1
-      )) {
+      if (
+        !(blossomParent[blossomIndex] === -1 && labels[blossomIndex] === 1) ||
+        bestEdge[blossomIndex] === -1
+      ) {
         continue;
       }
 
