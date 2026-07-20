@@ -476,7 +476,7 @@ function finalizePairMC(
   const one = DynamicUint.from(1);
   const zero = DynamicUint.from(0);
   for (let index = 0; index < np; index++) {
-    if (!(index !== v1 && index !== v2)) {
+    if (index === v1 || index === v2) {
       continue;
     }
 
@@ -575,7 +575,7 @@ function pair(
 
     for (let index = 0; index < n; index++) {
       const mi = m0[index] ?? -1;
-      if (mi < 0 || mi === index) {
+      if (mi === index || mi < 0) {
         byeAssigneeScore = sorted[index]?.score ?? 0;
         break;
       }
@@ -586,7 +586,7 @@ function pair(
       for (let index = 0; index < n; index++) {
         if ((sorted[index]?.score ?? -1) < topScore) break;
         const mi = m0[index] ?? -1;
-        if (mi < 0 || mi === index) continue;
+        if (mi === index || mi < 0) continue;
         if ((sorted[mi]?.score ?? -1) < topScore) {
           isSingleDownfloaterByeAssignee = false;
           break;
@@ -1075,7 +1075,7 @@ function pair(
 
       // Finalize the pairing
       const matchGlobal = stableMatching[playerGlobal] ?? -1;
-      if (matchGlobal >= 0 && matchGlobal !== playerGlobal) {
+      if (matchGlobal !== playerGlobal && matchGlobal >= 0) {
         matched[matchGlobal] = true;
         finalizePairMC(playerGlobal, matchGlobal, mc, np);
         matchedPairs.push([playerGlobal, matchGlobal]);
@@ -1422,8 +1422,8 @@ function pair(
 
       const matchGlobal = stableMatching[playerGlobal] ?? -1;
       if (
-        matchGlobal >= 0 &&
         matchGlobal !== playerGlobal &&
+        matchGlobal >= 0 &&
         matched[playerGlobal] !== true &&
         matched[matchGlobal] !== true
       ) {
@@ -1483,8 +1483,8 @@ function pair(
         if (isSingleDownfloaterByeAssignee) {
           const matchG = stableMatching[playerGlobal] ?? -1;
           if (
-            matchG >= 0 &&
             matchG !== playerGlobal &&
+            matchG >= 0 &&
             (pairedSorted[matchG]?.score ?? -1) < currentGroupScore
           ) {
             isSingleDownfloaterByeAssignee = false;
@@ -1573,7 +1573,7 @@ function pair(
       const seen = new Set<number>();
       for (const [k, element] of fallbackMatch.entries()) {
         const mk = element ?? -1;
-        if (mk < 0 || mk === k || seen.has(k) || seen.has(mk)) continue;
+        if (mk === k || mk < 0 || seen.has(k) || seen.has(mk)) continue;
         seen.add(k);
         seen.add(mk);
         if (k < mk) matchedPairs.push([k, mk]);
@@ -1670,7 +1670,7 @@ function pair(
     for (let k = 0; k < np; k++) {
       if (seenGlobal.has(k)) continue;
       const mk = globalMatch[k] ?? -1;
-      if (mk < 0 || mk === k) continue;
+      if (mk === k || mk < 0) continue;
       seenGlobal.add(k);
       seenGlobal.add(mk);
       if (k < mk) matchedPairs.push([k, mk]);
