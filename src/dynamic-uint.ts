@@ -29,7 +29,7 @@ class DynamicUint {
   add(value: number | DynamicUint): this {
     if (typeof value === 'number') {
       let carry = value >>> 0;
-      for (let index = 0; index < this.#data.length && carry !== 0; index++) {
+      for (let index = 0; carry !== 0 && index < this.#data.length; index++) {
         const sum = (this.#data[index] ?? 0) + carry;
         this.#data[index] = sum >>> 0;
         carry = Math.floor(sum / 0x1_00_00_00_00);
@@ -212,7 +212,7 @@ class DynamicUint {
   subtract(value: number | DynamicUint): this {
     if (typeof value === 'number') {
       let borrow = value >>> 0;
-      for (let index = 0; index < this.#data.length && borrow !== 0; index++) {
+      for (let index = 0; borrow !== 0 && index < this.#data.length; index++) {
         const diff = (this.#data[index] ?? 0) - borrow;
         if (diff < 0) {
           this.#data[index] = (diff + 0x1_00_00_00_00) >>> 0;

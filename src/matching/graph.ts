@@ -166,10 +166,10 @@ class Graph implements GraphLike {
     // Iterate over a snapshot because freeAncestorOfBase modifies the pool.
     const snapshot = [...this.rootBlossomPool];
     for (const rootBlossom of snapshot) {
-      if (!(
-        !rootBlossom.baseVertexMatch &&
-        !rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
-      )) {
+      if (
+        rootBlossom.baseVertexMatch ||
+        rootBlossom.baseVertex.dualVariable.clone().and(1).isZero()
+      ) {
         continue;
       }
 
@@ -413,8 +413,8 @@ class Graph implements GraphLike {
       // CASE 2: ZERO↔OUTER tight edge
       // -----------------------------------------------------------------------
       if (
-        minInnerOuterEdgeResistance.isZero() &&
         minInnerOuterEdgeResistanceVertex !== undefined &&
+        minInnerOuterEdgeResistance.isZero() &&
         minInnerOuterEdgeResistanceVertex.rootBlossom!.label === Label.ZERO
       ) {
         const zv = minInnerOuterEdgeResistanceVertex;
@@ -436,7 +436,7 @@ class Graph implements GraphLike {
         const rb0 = minOuterOuterEdgeResistanceRootBlossom;
         if (rb0 !== undefined) {
           rb0Search: for (const rb1 of this.rootBlossomPool) {
-            if (rb1.label !== Label.OUTER || rb1 === rb0) continue rb0Search;
+            if (rb1 === rb0 || rb1.label !== Label.OUTER) continue rb0Search;
             const v0: Vertex | undefined =
               rb0.minOuterEdges[rb1.baseVertex.vertexIndex];
             const v1: Vertex | undefined =
@@ -984,7 +984,7 @@ class Graph implements GraphLike {
   ): void {
     const minValue = this.aboveMaxEdgeWeight.clone();
     for (const rb of this.rootBlossomPool) {
-      if (!(rb.label === Label.INNER && !rb.rootChild.isVertex)) {
+      if (rb.label !== Label.INNER || rb.rootChild.isVertex) {
         continue;
       }
 

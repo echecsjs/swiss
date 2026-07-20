@@ -244,7 +244,7 @@ const DUBOV_CRITERIA: Criterion[] = [
       const distribution = hi - lo;
 
       // Perfect adjacent pair: lo is even and hi = lo + 1
-      if (lo % 2 === 0 && distribution === 1) {
+      if (distribution === 1 && lo % 2 === 0) {
         return maxValue;
       }
 
