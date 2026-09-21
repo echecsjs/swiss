@@ -57,9 +57,7 @@ function computeARO(state: PlayerState, players: Player[]): number {
     sum += rating;
     count++;
   }
-  if (count === 0) return 0;
-  // Round to nearest integer (higher if 0.5)
-  return Math.round(sum / count);
+  return count === 0 ? 0 : Math.round(sum / count);
 }
 
 // ---------------------------------------------------------------------------
@@ -78,9 +76,9 @@ function dubovRankCompare(a: PlayerState, b: PlayerState): number {
 //   3.1.4 highest number of games played (fewest unplayed rounds)
 //   3.1.5 largest TPN
 function dubovByeTiebreak(a: PlayerState, b: PlayerState): number {
-  if (a.unplayedRounds !== b.unplayedRounds)
-    return a.unplayedRounds - b.unplayedRounds;
-  return b.tpn - a.tpn;
+  return a.unplayedRounds === b.unplayedRounds
+    ? b.tpn - a.tpn
+    : a.unplayedRounds - b.unplayedRounds;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,13 +93,21 @@ function dubovByeTiebreak(a: PlayerState, b: PlayerState): number {
  * adjacent-pair criterion encoding.
  */
 interface DubovContext extends BracketContext {
-  /** Map from player id → rank index (0-based) in Dubov sorted order */
+  /**
+  Map from player id → rank index (0-based) in Dubov sorted order
+  */
   rankIndex: Map<string, number>;
-  /** Total number of players being paired */
+  /**
+  Total number of players being paired
+  */
   playerCount: number;
-  /** MaxT parameter: 2 + floor(totalRounds / 5) */
+  /**
+  MaxT parameter: 2 + floor(totalRounds / 5)
+  */
   maxT: number;
-  /** Map from player id → upfloat count (times been upfloated) */
+  /**
+  Map from player id → upfloat count (times been upfloated)
+  */
   upfloatCount: Map<string, number>;
   totalRounds: number;
   isLastRound: boolean;
@@ -115,16 +121,13 @@ const DUBOV_CRITERIA: Criterion[] = [
   {
     bits: 1,
     evaluate: (a: PlayerState, b: PlayerState) => {
-      if (
-        a.preferenceStrength === 'absolute' &&
+      return a.preferenceStrength === 'absolute' &&
         b.preferenceStrength === 'absolute' &&
         a.preferredColor !== undefined &&
         b.preferredColor !== undefined &&
         a.preferredColor === b.preferredColor
-      ) {
-        return 0;
-      }
-      return 1;
+        ? 0
+        : 1;
     },
   },
 
@@ -179,8 +182,7 @@ const DUBOV_CRITERIA: Criterion[] = [
     bits: 1,
     evaluate: (a: PlayerState, b: PlayerState, context: BracketContext) => {
       const dContext = context as DubovContext;
-      if (dContext.isLastRound) return 1;
-      if (a.score === b.score) return 1;
+      if (dContext.isLastRound || a.score === b.score) return 1;
       const upfloater = a.score < b.score ? a : b;
       const upfloatCt = dContext.upfloatCount.get(upfloater.id) ?? 0;
       return upfloatCt >= dContext.maxT ? 0 : 1;
@@ -193,14 +195,10 @@ const DUBOV_CRITERIA: Criterion[] = [
     bits: 4,
     evaluate: (a: PlayerState, b: PlayerState, context: BracketContext) => {
       const dContext = context as DubovContext;
-      if (dContext.isLastRound) return 15;
-      if (a.score === b.score) return 15;
+      if (dContext.isLastRound || a.score === b.score) return 15;
       const upfloater = a.score < b.score ? a : b;
       const upfloatCt = dContext.upfloatCount.get(upfloater.id) ?? 0;
-      if (upfloatCt >= dContext.maxT) {
-        return Math.max(0, 15 - upfloatCt);
-      }
-      return 15;
+      return upfloatCt >= dContext.maxT ? Math.max(0, 15 - upfloatCt) : 15;
     },
   },
 
@@ -210,8 +208,7 @@ const DUBOV_CRITERIA: Criterion[] = [
     bits: 1,
     evaluate: (a: PlayerState, b: PlayerState, context: BracketContext) => {
       const dContext = context as DubovContext;
-      if (dContext.isLastRound) return 1;
-      if (a.score === b.score) return 1;
+      if (dContext.isLastRound || a.score === b.score) return 1;
       const upfloater = a.score < b.score ? a : b;
       return upfloater.floatHistory.at(-1) === 'up' ? 0 : 1;
     },
@@ -243,13 +240,9 @@ const DUBOV_CRITERIA: Criterion[] = [
       const hi = Math.max(rankA, rankB);
       const distribution = hi - lo;
 
-      // Perfect adjacent pair: lo is even and hi = lo + 1
-      if (distribution === 1 && lo % 2 === 0) {
-        return maxValue;
-      }
-
-      // Reward closeness in rank (further = lower score)
-      return Math.max(0, maxValue - distribution);
+      return distribution === 1 && lo % 2 === 0
+        ? maxValue
+        : Math.max(0, maxValue - distribution);
     },
   },
 ];
@@ -284,8 +277,7 @@ function pair(
     if (a.score !== b.score) return b.score - a.score;
     const aroA = aroById.get(a.id) ?? 0;
     const aroB = aroById.get(b.id) ?? 0;
-    if (aroA !== aroB) return aroB - aroA;
-    return a.tpn - b.tpn;
+    return aroA === aroB ? a.tpn - b.tpn : aroB - aroA;
   });
 
   // Build rank index (0-based position in Dubov sorted order)
@@ -378,22 +370,23 @@ function pair(
   for (const s of pairedPool) {
     if (seen.has(s.id)) continue;
     const partnerId = matching.get(s.id);
-    if (partnerId !== undefined) {
-      seen.add(s.id);
-      seen.add(partnerId);
-      const a = stateById.get(s.id);
-      const b = stateById.get(partnerId);
-      if (a === undefined || b === undefined) continue;
-      allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
-      if (trace) {
-        trace({
-          phase: 'main',
-          playerA: a.id,
-          playerB: b.id,
-          system: 'dubov',
-          type: 'pairing:pair-finalized',
-        });
-      }
+    if (partnerId === undefined) {
+      continue;
+    }
+    seen.add(s.id);
+    seen.add(partnerId);
+    const a = stateById.get(s.id);
+    const b = stateById.get(partnerId);
+    if (a === undefined || b === undefined) continue;
+    allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
+    if (trace) {
+      trace({
+        phase: 'main',
+        playerA: a.id,
+        playerB: b.id,
+        system: 'dubov',
+        type: 'pairing:pair-finalized',
+      });
     }
   }
 

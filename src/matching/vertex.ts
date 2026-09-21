@@ -15,10 +15,14 @@ import type { Blossom, ParentBlossom, RootBlossom } from './blossom.js';
  * @internal Not part of the public API.
  */
 class Vertex {
-  /** Discriminator — always `true` for Vertex, used to distinguish from Blossom in the union type. */
+  /**
+  Discriminator — always `true` for Vertex, used to distinguish from Blossom in the union type.
+  */
   readonly isVertex = true as const;
 
-  /** Immutable index identifying this vertex within the graph. */
+  /**
+  Immutable index identifying this vertex within the graph.
+  */
   readonly vertexIndex: number;
 
   /**
@@ -27,7 +31,9 @@ class Vertex {
    */
   dualVariable!: DynamicUint;
 
-  /** Edge weights indexed by the other vertex's index (stored doubled). */
+  /**
+  Edge weights indexed by the other vertex's index (stored doubled).
+  */
   edgeWeights: DynamicUint[];
 
   // ---------------------------------------------------------------------------
@@ -50,20 +56,28 @@ class Vertex {
   // Blossom child links
   // ---------------------------------------------------------------------------
 
-  /** Next blossom child link. */
+  /**
+  Next blossom child link.
+  */
   nextBlossom: Blossom | undefined;
 
-  /** Next vertex in the linked list of vertices belonging to the same RootBlossom. */
+  /**
+  Next vertex in the linked list of vertices belonging to the same RootBlossom.
+  */
   nextVertex: Vertex | undefined;
 
   // ---------------------------------------------------------------------------
   // Blossom tree membership
   // ---------------------------------------------------------------------------
 
-  /** The immediate parent blossom of this vertex within the blossom tree. */
+  /**
+  The immediate parent blossom of this vertex within the blossom tree.
+  */
   parentBlossom: ParentBlossom | undefined;
 
-  /** Previous blossom child link. */
+  /**
+  Previous blossom child link.
+  */
   previousBlossom: Blossom | undefined;
 
   /**
@@ -76,20 +90,28 @@ class Vertex {
   // Vertex linked list through enclosing RootBlossom
   // ---------------------------------------------------------------------------
 
-  /** Head of the vertex list for the RootBlossom rooted at this vertex (points to self when singleton). */
+  /**
+  Head of the vertex list for the RootBlossom rooted at this vertex (points to self when singleton).
+  */
   vertexListHead: Vertex;
 
-  /** Tail of the vertex list for the RootBlossom rooted at this vertex (points to self when singleton). */
+  /**
+  Tail of the vertex list for the RootBlossom rooted at this vertex (points to self when singleton).
+  */
   vertexListTail: Vertex;
 
   // ---------------------------------------------------------------------------
   // Sibling links within parent blossom
   // ---------------------------------------------------------------------------
 
-  /** Link to the next sibling blossom within the parent blossom. */
+  /**
+  Link to the next sibling blossom within the parent blossom.
+  */
   vertexToNextSiblingBlossom: Vertex | undefined;
 
-  /** Link to the previous sibling blossom within the parent blossom. */
+  /**
+  Link to the previous sibling blossom within the parent blossom.
+  */
   vertexToPreviousSiblingBlossom: Vertex | undefined;
 
   constructor(

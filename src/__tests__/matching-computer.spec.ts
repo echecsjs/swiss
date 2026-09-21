@@ -519,13 +519,13 @@ function totalWeight(
   const counted = new Set<number>();
   for (const [index, element] of matching.entries()) {
     const partner = element!;
-    if (partner !== -1 && partner !== index && !counted.has(index)) {
-      const key =
-        index < partner ? `${index}-${partner}` : `${partner}-${index}`;
-      total += edgeWeights.get(key) ?? 0;
-      counted.add(index);
-      counted.add(partner);
+    if (partner === -1 || partner === index || counted.has(index)) {
+      continue;
     }
+    const key = index < partner ? `${index}-${partner}` : `${partner}-${index}`;
+    total += edgeWeights.get(key) ?? 0;
+    counted.add(index);
+    counted.add(partner);
   }
   return total;
 }

@@ -9,10 +9,14 @@
  * @internal Not part of the public API.
  */
 class IterablePool<T> {
-  /** First allocated slot (visible or hidden), or -1 if none. */
+  /**
+  First allocated slot (visible or hidden), or -1 if none.
+  */
   #allocatedHead = -1;
 
-  /** Per-slot backward link for allocated slots (-1 = none). */
+  /**
+  Per-slot backward link for allocated slots (-1 = none).
+  */
   readonly #backward: Int32Array;
 
   /**
@@ -22,16 +26,24 @@ class IterablePool<T> {
    */
   readonly #forward: Int32Array;
 
-  /** First visible (iterable) slot, or -1 if none. */
+  /**
+  First visible (iterable) slot, or -1 if none.
+  */
   #head = -1;
 
-  /** Slot storage. undefined = unallocated. */
+  /**
+  Slot storage. undefined = unallocated.
+  */
   readonly #slots: (T | undefined)[];
 
-  /** Last allocated slot (visible or hidden), or -1 if none. */
+  /**
+  Last allocated slot (visible or hidden), or -1 if none.
+  */
   #tail = -1;
 
-  /** First unallocated (free) slot, or -1 if none. */
+  /**
+  First unallocated (free) slot, or -1 if none.
+  */
   #unallocatedHead: number;
 
   constructor(capacity: number) {
@@ -45,7 +57,9 @@ class IterablePool<T> {
     }
   }
 
-  /** Iterate over visible (non-hidden) elements in linked-list order. */
+  /**
+  Iterate over visible (non-hidden) elements in linked-list order.
+  */
   *[Symbol.iterator](): Generator<T> {
     let slot = this.#head;
     while (slot !== -1) {
@@ -54,7 +68,9 @@ class IterablePool<T> {
     }
   }
 
-  /** Allocate a slot, store `value`, append to iteration tail. Returns slot index. */
+  /**
+  Allocate a slot, store `value`, append to iteration tail. Returns slot index.
+  */
   construct(value: T): number {
     const slot = this.#unallocatedHead;
     if (slot === -1) throw new RangeError('IterablePool: capacity exceeded');
@@ -79,7 +95,9 @@ class IterablePool<T> {
     return slot;
   }
 
-  /** Destroy: remove from lists entirely, return slot to free list. */
+  /**
+  Destroy: remove from lists entirely, return slot to free list.
+  */
   destroy(slot: number): void {
     const fwd = this.#forward[slot]!;
     const bwd = this.#backward[slot]!;
@@ -107,12 +125,16 @@ class IterablePool<T> {
     this.#unallocatedHead = slot;
   }
 
-  /** Get value at slot index. */
+  /**
+  Get value at slot index.
+  */
   get(slot: number): T {
     return this.#slots[slot] as T;
   }
 
-  /** Remove from iteration list but keep alive. */
+  /**
+  Remove from iteration list but keep alive.
+  */
   hide(slot: number): void {
     const fwd = this.#forward[slot]!;
     const bwd = this.#backward[slot]!;

@@ -125,12 +125,7 @@ function makeAllocateTeamColors(
 
     // 4.3.9 — Alternate other team's color from last round.
     const otherLast = otherHistory.at(-1);
-    if (otherLast !== undefined) {
-      return (otherLast === 'white' ? firstWhite : firstBlack)();
-    }
-
-    // Fallback: first-team gets White.
-    return firstWhite();
+    return (otherLast === 'black' ? firstBlack : firstWhite)();
   };
 }
 

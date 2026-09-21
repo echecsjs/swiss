@@ -314,11 +314,12 @@ function maxWeightMatching(
         blossom = vertexTopBlossom[cursorA]!;
         cursorA = endpoints[labelEndpoints[blossom]!]!;
       }
-      if (cursorB !== -1) {
-        const swap = cursorA;
-        cursorA = cursorB;
-        cursorB = swap;
+      if (cursorB === -1) {
+        continue;
       }
+      const swap = cursorA;
+      cursorA = cursorB;
+      cursorB = swap;
     }
     for (const blossom of path) labels[blossom] = 1;
     return base;
@@ -383,6 +384,24 @@ function maxWeightMatching(
       () => -1,
     );
     // Merge best-edge lists from all children into the new blossom.
+    function mergeBestEdgeList(edgeList: number[]): void {
+      for (const candidateEdge of edgeList) {
+        const [endpointA, endpointB] = edges[candidateEdge]!;
+        const outerVertex =
+          vertexTopBlossom[endpointB] === newBlossom ? endpointA : endpointB;
+        const outerBlossom = vertexTopBlossom[outerVertex]!;
+        if (outerBlossom === newBlossom || labels[outerBlossom] !== 1) {
+          continue;
+        }
+        const candidateSlack = slack(candidateEdge);
+        if (
+          bestEdgeTo[outerBlossom] === -1 ||
+          candidateSlack.compareTo(slack(bestEdgeTo[outerBlossom]!)) < 0
+        ) {
+          bestEdgeTo[outerBlossom] = candidateEdge;
+        }
+      }
+    }
     for (const childBlossom of path) {
       let edgeLists: number[][];
       if (blossomBestEdges[childBlossom] === undefined) {
@@ -390,21 +409,9 @@ function maxWeightMatching(
         for (const leaf of blossomLeaves(childBlossom))
           edgeLists.push(neighborEdges[leaf]!.map((ep) => ep >> 1));
       } else edgeLists = [blossomBestEdges[childBlossom]];
-      for (const edgeList of edgeLists)
-        for (const candidateEdge of edgeList) {
-          const [endpointA, endpointB] = edges[candidateEdge]!;
-          const outerVertex =
-            vertexTopBlossom[endpointB] === newBlossom ? endpointA : endpointB;
-          const outerBlossom = vertexTopBlossom[outerVertex]!;
-          if (outerBlossom !== newBlossom && labels[outerBlossom] === 1) {
-            const candidateSlack = slack(candidateEdge);
-            if (
-              bestEdgeTo[outerBlossom] === -1 ||
-              candidateSlack.compareTo(slack(bestEdgeTo[outerBlossom]!)) < 0
-            )
-              bestEdgeTo[outerBlossom] = candidateEdge;
-          }
-        }
+      for (const edgeList of edgeLists) {
+        mergeBestEdgeList(edgeList);
+      }
       blossomBestEdges[childBlossom] = undefined;
       bestEdge[childBlossom] = -1;
     }
@@ -765,14 +772,15 @@ function maxWeightMatching(
       }
 
       const candidateDeltaValue = slack(bestEdge[v]!);
-      if (
-        deltaType === -1 ||
-        candidateDeltaValue.compareTo(candidateDelta) < 0
-      ) {
-        candidateDelta = candidateDeltaValue;
-        deltaType = 2;
-        deltaEdge = bestEdge[v]!;
+      if (!(
+        deltaType === -1 || candidateDeltaValue.compareTo(candidateDelta) < 0
+      )) {
+        continue;
       }
+
+      candidateDelta = candidateDeltaValue;
+      deltaType = 2;
+      deltaEdge = bestEdge[v]!;
     }
     for (let blossomIndex = 0; blossomIndex < 2 * vertexCount; blossomIndex++) {
       if (
@@ -785,14 +793,15 @@ function maxWeightMatching(
       const candidateDeltaValue = slack(bestEdge[blossomIndex]!)
         .clone()
         .shiftRight(1);
-      if (
-        deltaType === -1 ||
-        candidateDeltaValue.compareTo(candidateDelta) < 0
-      ) {
-        candidateDelta = candidateDeltaValue;
-        deltaType = 3;
-        deltaEdge = bestEdge[blossomIndex]!;
+      if (!(
+        deltaType === -1 || candidateDeltaValue.compareTo(candidateDelta) < 0
+      )) {
+        continue;
       }
+
+      candidateDelta = candidateDeltaValue;
+      deltaType = 3;
+      deltaEdge = bestEdge[blossomIndex]!;
     }
     for (
       let blossomIndex = vertexCount;

@@ -48,9 +48,9 @@ function limRankCompare(a: PlayerState, b: PlayerState): number {
 
 // Bye tiebreak: among equal-score players, highest TPN (lowest ranked) first
 function limByeTiebreak(a: PlayerState, b: PlayerState): number {
-  if (a.unplayedRounds !== b.unplayedRounds)
-    return a.unplayedRounds - b.unplayedRounds;
-  return b.tpn - a.tpn;
+  return a.unplayedRounds === b.unplayedRounds
+    ? b.tpn - a.tpn
+    : a.unplayedRounds - b.unplayedRounds;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,8 +158,7 @@ const LIM_CRITERIA: Criterion[] = [
       const lContext = context as LimContext;
       const bits = lContext.scoreGroupSizeBits + 1;
       const max = (1 << bits) - 1;
-      if (a.score === b.score) return max;
-      return 0;
+      return a.score === b.score ? max : 0;
     },
   },
   // C7: Minimise downfloater scores (descending).
@@ -358,22 +357,23 @@ function pair(
   for (const s of pairedPool) {
     if (seen.has(s.id)) continue;
     const partnerId = matching.get(s.id);
-    if (partnerId !== undefined) {
-      seen.add(s.id);
-      seen.add(partnerId);
-      const a = stateById.get(s.id);
-      const b = stateById.get(partnerId);
-      if (a === undefined || b === undefined) continue;
-      allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
-      if (trace) {
-        trace({
-          phase: 'main',
-          playerA: a.id,
-          playerB: b.id,
-          system: 'lim',
-          type: 'pairing:pair-finalized',
-        });
-      }
+    if (partnerId === undefined) {
+      continue;
+    }
+    seen.add(s.id);
+    seen.add(partnerId);
+    const a = stateById.get(s.id);
+    const b = stateById.get(partnerId);
+    if (a === undefined || b === undefined) continue;
+    allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
+    if (trace) {
+      trace({
+        phase: 'main',
+        playerA: a.id,
+        playerB: b.id,
+        system: 'lim',
+        type: 'pairing:pair-finalized',
+      });
     }
   }
 

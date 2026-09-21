@@ -35,7 +35,9 @@ function toSwissPlayers(tournament: TournamentData): Player[] {
   }));
 }
 
-/** IDs of players who have a pre-assigned Z or F bye in the target round. */
+/**
+IDs of players who have a pre-assigned Z or F bye in the target round.
+*/
 function preAssignedIds(
   tournament: TournamentData,
   targetRound: number,

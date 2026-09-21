@@ -272,12 +272,7 @@ function buildPlayerStates(
  * values = PlayerState arrays sorted by TPN ascending within each group.
  */
 function scoreGroups(states: PlayerState[]): Map<number, PlayerState[]> {
-  const groups = new Map<number, PlayerState[]>();
-  for (const state of states) {
-    const group = groups.get(state.score) ?? [];
-    group.push(state);
-    groups.set(state.score, group);
-  }
+  const groups = Map.groupBy(states, (state) => state.score);
 
   // Sort each group by TPN ascending
   // Return map with keys sorted descending; sort groups by TPN ascending
@@ -312,11 +307,9 @@ function assignBye(
   const minScore = Math.min(...pool.map((s) => s.score));
   const lowestScored = pool.filter((s) => s.score === minScore);
 
-  if (lowestScored.length === 1) {
-    return lowestScored[0];
-  }
-
-  return lowestScored.toSorted(tiebreak)[0];
+  return lowestScored.length === 1
+    ? lowestScored[0]
+    : lowestScored.toSorted(tiebreak)[0];
 }
 
 /**
@@ -377,8 +370,7 @@ function allocateColor(
 function rankPreference(s: PlayerState['preferenceStrength']): number {
   if (s === 'absolute') return 3;
   if (s === 'strong') return 2;
-  if (s === 'mild') return 1;
-  return 0;
+  return s === 'mild' ? 1 : 0;
 }
 
 /**
@@ -537,14 +529,7 @@ function playerScoreGroups(
   players: Player[],
   rounds: CompletedRound[],
 ): Map<number, Player[]> {
-  const groups = new Map<number, Player[]>();
-  for (const player of players) {
-    const s = score(player.id, rounds);
-    const group = groups.get(s) ?? [];
-    group.push(player);
-    groups.set(s, group);
-  }
-  return groups;
+  return Map.groupBy(players, (player) => score(player.id, rounds));
 }
 
 /**
@@ -600,10 +585,9 @@ function assignColors(
   b: Player,
   rounds: CompletedRound[],
 ): { black: string; white: string } {
-  if (colorPreference(a.id, rounds) > 0) {
-    return { black: b.id, white: a.id };
-  }
-  return { black: a.id, white: b.id };
+  return colorPreference(a.id, rounds) > 0
+    ? { black: b.id, white: a.id }
+    : { black: a.id, white: b.id };
 }
 
 /**
@@ -613,10 +597,7 @@ function assignColors(
 function rankPlayers(players: Player[], rounds: CompletedRound[]): Player[] {
   return [...players].toSorted((a, b) => {
     const scoreDiff = score(b.id, rounds) - score(a.id, rounds);
-    if (scoreDiff !== 0) {
-      return scoreDiff;
-    }
-    return (b.rating ?? 0) - (a.rating ?? 0);
+    return scoreDiff === 0 ? (b.rating ?? 0) - (a.rating ?? 0) : scoreDiff;
   });
 }
 
