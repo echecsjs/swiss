@@ -29,25 +29,39 @@ interface GraphLike {
  * @internal Not part of the public API.
  */
 class ParentBlossom {
-  /** Discriminator — always `false` for ParentBlossom. */
+  /**
+  Discriminator — always `false` for ParentBlossom.
+  */
   readonly isVertex = false as const;
 
-  /** Dual variable of this compound blossom. */
+  /**
+  Dual variable of this compound blossom.
+  */
   dualVariable: DynamicUint;
 
-  /** Whether iteration (for putVerticesInMatchingOrder) starts with subblossom. */
+  /**
+  Whether iteration (for putVerticesInMatchingOrder) starts with subblossom.
+  */
   iterationStartsWithSubblossom: boolean;
 
-  /** Next blossom child link within the parent blossom's cycle. */
+  /**
+  Next blossom child link within the parent blossom's cycle.
+  */
   nextBlossom: Blossom | undefined;
 
-  /** The immediate parent compound blossom, or `undefined` if directly under a RootBlossom. */
+  /**
+  The immediate parent compound blossom, or `undefined` if directly under a RootBlossom.
+  */
   parentBlossom: ParentBlossom | undefined;
 
-  /** Slot index in the Graph's parentBlossom pool. Set after construction. */
+  /**
+  Slot index in the Graph's parentBlossom pool. Set after construction.
+  */
   poolIndex = -1;
 
-  /** Previous blossom child link within the parent blossom's cycle. */
+  /**
+  Previous blossom child link within the parent blossom's cycle.
+  */
   previousBlossom: Blossom | undefined;
 
   /**
@@ -62,16 +76,24 @@ class ParentBlossom {
    */
   subblossom: Blossom;
 
-  /** Head of the vertex linked list for all vertices in this blossom. */
+  /**
+  Head of the vertex linked list for all vertices in this blossom.
+  */
   vertexListHead: Vertex;
 
-  /** Tail of the vertex linked list for all vertices in this blossom. */
+  /**
+  Tail of the vertex linked list for all vertices in this blossom.
+  */
   vertexListTail: Vertex;
 
-  /** Link to the vertex that connects to the next sibling blossom in parent. */
+  /**
+  Link to the vertex that connects to the next sibling blossom in parent.
+  */
   vertexToNextSiblingBlossom: Vertex | undefined;
 
-  /** Link to the vertex that connects to the previous sibling blossom in parent. */
+  /**
+  Link to the vertex that connects to the previous sibling blossom in parent.
+  */
   vertexToPreviousSiblingBlossom: Vertex | undefined;
 
   constructor(
@@ -193,19 +215,29 @@ function setPointersFromAncestor(
  * @internal Not part of the public API.
  */
 class RootBlossom {
-  /** Representative vertex for this blossom (the "base"). */
+  /**
+  Representative vertex for this blossom (the "base").
+  */
   baseVertex: Vertex;
 
-  /** The matched partner's base vertex. `undefined` = exposed (unmatched). */
+  /**
+  The matched partner's base vertex. `undefined` = exposed (unmatched).
+  */
   baseVertexMatch: Vertex | undefined;
 
-  /** Label assigned during augmentation. */
+  /**
+  Label assigned during augmentation.
+  */
   label: Label;
 
-  /** Vertex that received a label during augmentation. */
+  /**
+  Vertex that received a label during augmentation.
+  */
   labeledVertex: Vertex | undefined;
 
-  /** Vertex that carried the label to `labeledVertex` during augmentation. */
+  /**
+  Vertex that carried the label to `labeledVertex` during augmentation.
+  */
   labelingVertex: Vertex | undefined;
 
   /**
@@ -219,10 +251,14 @@ class RootBlossom {
    */
   minOuterEdges: (Vertex | undefined)[];
 
-  /** Slot index in the Graph's rootBlossom pool. Set after construction. */
+  /**
+  Slot index in the Graph's rootBlossom pool. Set after construction.
+  */
   poolIndex = -1;
 
-  /** The direct child of this RootBlossom in the blossom tree. */
+  /**
+  The direct child of this RootBlossom in the blossom tree.
+  */
   rootChild: Blossom;
 
   constructor(

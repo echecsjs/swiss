@@ -53,10 +53,12 @@ function augmentToSource(vertex: Vertex | undefined, newMatch?: Vertex): void {
     vertex = originalMatch.labelingVertex;
     newMatch = originalMatch.labeledVertex;
   }
-  if (vertex) {
-    vertex.rootBlossom!.baseVertex = vertex;
-    vertex.rootBlossom!.baseVertexMatch = newMatch;
+  if (!vertex) {
+    return;
   }
+
+  vertex.rootBlossom!.baseVertex = vertex;
+  vertex.rootBlossom!.baseVertexMatch = newMatch;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +80,9 @@ class Graph implements GraphLike {
    */
   readonly vertexDualVariables: DynamicUint[] = [];
 
-  /** All vertices in the graph. */
+  /**
+  All vertices in the graph.
+  */
   readonly vertices: Vertex[] = [];
 
   // Public mutable fields (alphabetical)
@@ -89,7 +93,9 @@ class Graph implements GraphLike {
    */
   parentBlossomPool: IterablePool<ParentBlossom>;
 
-  /** Pre-allocated scratch for resistance calculations. */
+  /**
+  Pre-allocated scratch for resistance calculations.
+  */
   private readonly resistanceStorage: DynamicUint;
 
   /**
@@ -441,18 +447,20 @@ class Graph implements GraphLike {
               rb0.minOuterEdges[rb1.baseVertex.vertexIndex];
             const v1: Vertex | undefined =
               rb1.minOuterEdges[rb0.baseVertex.vertexIndex];
-            if (
+            if (!(
               v0 !== undefined &&
               v1 !== undefined &&
               v0.rootBlossom === rb0 &&
               v1.rootBlossom === rb1
-            ) {
-              resistanceInto(this.resistanceStorage, v0, v1);
-              if (this.resistanceStorage.isZero()) {
-                vertex0 = v0;
-                vertex1 = v1;
-                break rb0Search;
-              }
+            )) {
+              continue rb0Search;
+            }
+
+            resistanceInto(this.resistanceStorage, v0, v1);
+            if (this.resistanceStorage.isZero()) {
+              vertex0 = v0;
+              vertex1 = v1;
+              break rb0Search;
             }
           }
         }
@@ -865,10 +873,12 @@ class Graph implements GraphLike {
       outerVLoop: for (const outerV of outerVertices) {
         if (v.vertexIndex === outerV.vertexIndex) continue outerVLoop;
         resistanceInto(rs, v, outerV);
-        if (rs.lt(v.minOuterEdgeResistance)) {
-          v.minOuterEdge = outerV;
-          v.minOuterEdgeResistance.copyFrom(rs);
+        if (!rs.lt(v.minOuterEdgeResistance)) {
+          continue outerVLoop;
         }
+
+        v.minOuterEdge = outerV;
+        v.minOuterEdgeResistance.copyFrom(rs);
       }
     }
   }
@@ -886,8 +896,8 @@ class Graph implements GraphLike {
         rb.minOuterEdges[index] = undefined;
       }
       otherRbLoop: for (const otherRb of this.rootBlossomPool) {
-        if (otherRb === rb) continue otherRbLoop;
-        if (otherRb.label !== Label.OUTER) continue otherRbLoop;
+        if (otherRb === rb || otherRb.label !== Label.OUTER)
+          continue otherRbLoop;
         const pairMin = this.aboveMaxEdgeWeight.clone();
         rb.minOuterEdges[otherRb.baseVertex.vertexIndex] = undefined;
         this.updateOuterOuterEdges(rb, otherRb, pairMin);
@@ -923,13 +933,15 @@ class Graph implements GraphLike {
       ) {
         if (innerVertex.vertexIndex === outerV.vertexIndex) continue outerVLoop;
         resistanceInto(rs, innerVertex, outerV);
-        if (
+        if (!(
           innerVertex.minOuterEdge === undefined ||
           rs.lt(innerVertex.minOuterEdgeResistance)
-        ) {
-          innerVertex.minOuterEdge = outerV;
-          innerVertex.minOuterEdgeResistance.copyFrom(rs);
+        )) {
+          continue outerVLoop;
         }
+
+        innerVertex.minOuterEdge = outerV;
+        innerVertex.minOuterEdgeResistance.copyFrom(rs);
       }
     }
   }
@@ -953,22 +965,24 @@ class Graph implements GraphLike {
       v0;
       v0 = v0.nextVertex
     ) {
-      for (
+      v1Loop: for (
         let v1: Vertex | undefined = rb1.rootChild.vertexListHead;
         v1;
         v1 = v1.nextVertex
       ) {
         resistanceInto(rs, v0, v1);
-        if (rs.lt(pairMinResistance)) {
-          pairMinResistance.copyFrom(rs);
-          actualRb0.minOuterEdges[actualRb1.baseVertex.vertexIndex] = v0;
-          actualRb1.minOuterEdges[actualRb0.baseVertex.vertexIndex] = v1;
-          if (rs.lt(actualRb0.minOuterEdgeResistance)) {
-            actualRb0.minOuterEdgeResistance.copyFrom(rs);
-          }
-          if (rs.lt(actualRb1.minOuterEdgeResistance)) {
-            actualRb1.minOuterEdgeResistance.copyFrom(rs);
-          }
+        if (!rs.lt(pairMinResistance)) {
+          continue v1Loop;
+        }
+
+        pairMinResistance.copyFrom(rs);
+        actualRb0.minOuterEdges[actualRb1.baseVertex.vertexIndex] = v0;
+        actualRb1.minOuterEdges[actualRb0.baseVertex.vertexIndex] = v1;
+        if (rs.lt(actualRb0.minOuterEdgeResistance)) {
+          actualRb0.minOuterEdgeResistance.copyFrom(rs);
+        }
+        if (rs.lt(actualRb1.minOuterEdgeResistance)) {
+          actualRb1.minOuterEdgeResistance.copyFrom(rs);
         }
       }
     }
@@ -989,11 +1003,13 @@ class Graph implements GraphLike {
       }
 
       const pb = rb.rootChild as ParentBlossom;
-      if (pb.dualVariable.lt(minValue)) {
-        minValue.copyFrom(pb.dualVariable);
-        setBlossom(pb);
-        setValue(pb.dualVariable);
+      if (!pb.dualVariable.lt(minValue)) {
+        continue;
       }
+
+      minValue.copyFrom(pb.dualVariable);
+      setBlossom(pb);
+      setValue(pb.dualVariable);
     }
   }
 

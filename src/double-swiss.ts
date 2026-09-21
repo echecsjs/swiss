@@ -88,13 +88,7 @@ function makeAllocateDoubleColors(
 
     // 4.3.5 — Alternate opponent's color from most recent match.
     const oppLast = oppHistory.at(-1);
-    if (oppLast !== undefined) {
-      // Alternate opp's color: if opp had white → opp gets black (HRP gets white).
-      return (oppLast === 'white' ? hrpWhite : hrpBlack)();
-    }
-
-    // Fallback: HRP gets White.
-    return hrpWhite();
+    return (oppLast === 'black' ? hrpBlack : hrpWhite)();
   };
 }
 

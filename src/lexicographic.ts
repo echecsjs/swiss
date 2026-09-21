@@ -15,11 +15,7 @@ type ColorAllocator = (
 function rankByScoreThenTPN(states: PlayerState[]): PlayerState[] {
   return [...states].toSorted((a, b) => {
     const scoreDiff = b.score - a.score;
-    if (scoreDiff !== 0) {
-      return scoreDiff;
-    }
-    // TPN ascending: lower TPN ranks higher
-    return a.tpn - b.tpn;
+    return scoreDiff === 0 ? a.tpn - b.tpn : scoreDiff;
   });
 }
 
@@ -61,12 +57,9 @@ function assignLexicographicBye(
     (s) => matchesPlayed(s) === maxMatches,
   );
 
-  if (mostMatches.length === 1) {
-    return mostMatches[0];
-  }
-
-  // 3. Largest TPN (highest original array index)
-  return mostMatches.toSorted((a, b) => b.tpn - a.tpn)[0];
+  return mostMatches.length === 1
+    ? mostMatches[0]
+    : mostMatches.toSorted((a, b) => b.tpn - a.tpn)[0];
 }
 
 /**
@@ -117,6 +110,20 @@ function allPerfectMatchings(
   return result;
 }
 
+function compareIdentifiers(a: number[], b: number[]): number {
+  for (const [k, value] of a.entries()) {
+    const other = b[k];
+    if (other === undefined) {
+      return 0;
+    }
+    const diff = value - other;
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
 /**
  * Pairs the bracket using lexicographic FIDE-identifier order (FIDE C.04.5
  * Article 3.6). Returns the first perfect matching satisfying C1 (no rematches).
@@ -133,17 +140,9 @@ function pairBracket(
   const sorted = [...bracket].toSorted((a, b) => a.tpn - b.tpn);
 
   // Generate all perfect matchings and sort by FIDE identifier.
-  const matchings = allPerfectMatchings(sorted).toSorted((ma, mb) => {
-    const ia = matchingIdentifier(ma);
-    const ib = matchingIdentifier(mb);
-    for (let k = 0; k < Math.min(ia.length, ib.length); k++) {
-      const diff = (ia[k] ?? 0) - (ib[k] ?? 0);
-      if (diff !== 0) {
-        return diff;
-      }
-    }
-    return 0;
-  });
+  const matchings = allPerfectMatchings(sorted).toSorted((ma, mb) =>
+    compareIdentifiers(matchingIdentifier(ma), matchingIdentifier(mb)),
+  );
 
   // Return the first matching satisfying C1 (no rematches).
   for (const matching of matchings) {

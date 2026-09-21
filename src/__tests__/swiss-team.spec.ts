@@ -4,7 +4,9 @@ import { pair } from '../swiss-team.js';
 
 import type { CompletedRound, Player } from '../types.js';
 
-/** Returns true if the given games contain a specific pair (order-insensitive). */
+/**
+Returns true if the given games contain a specific pair (order-insensitive).
+*/
 function hasPair(
   games: ReturnType<typeof pair>['games'],
   a: string,

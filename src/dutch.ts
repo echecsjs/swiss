@@ -49,8 +49,7 @@ function dutchRankCompare(a: PlayerState, b: PlayerState): number {
 // ---------------------------------------------------------------------------
 
 function bitsToRepresent(n: number): number {
-  if (n <= 1) return 1;
-  return Math.ceil(Math.log2(n + 1));
+  return n <= 1 ? 1 : Math.ceil(Math.log2(n + 1));
 }
 
 interface ScoreGroupParameters {
@@ -138,8 +137,7 @@ function invertColor(
   c: 'black' | 'white' | undefined,
 ): 'black' | 'white' | undefined {
   if (c === 'white') return 'black';
-  if (c === 'black') return 'white';
-  return undefined;
+  return c === 'black' ? 'white' : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -979,8 +977,7 @@ function pair(
           currentMatch < nextScoreGroupBeginVertex;
 
         if (!isCurrentlyMatchedToBracket) {
-          // Try to match by boosting edges to current bracket members
-          for (
+          matchBoostLoop: for (
             let opponentLocal = scoreGroupBegin;
             opponentLocal < nextScoreGroupBegin;
             opponentLocal++
@@ -990,11 +987,12 @@ function pair(
             const base = (
               baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[]
             )[playerLocal];
-            if (base !== undefined && !base.isZero()) {
-              const boosted = base.clone();
-              boosted.or(1); // set finalization bit
-              mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
+            if (base === undefined || base.isZero()) {
+              continue matchBoostLoop;
             }
+            const boosted = base.clone();
+            boosted.or(1);
+            mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
           }
 
           currentPhase = 'bracket-mdp';
@@ -1006,29 +1004,32 @@ function pair(
           newMatch >= scoreGroupBeginVertex &&
           newMatch < nextScoreGroupBeginVertex;
 
-        if (isNowMatchedToBracket) {
-          // Finalize that this MDP will be matched
-          matched[playerGlobal] = true;
-          remainingMatchedMDPs--;
+        if (!isNowMatchedToBracket) {
+          continue mdpLoop;
+        }
 
-          // Boost edges from this MDP to current bracket by bracket size
-          for (
-            let opponentLocal = scoreGroupBegin;
-            opponentLocal < nextScoreGroupBegin;
-            opponentLocal++
-          ) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const opponentGlobal = playersByIndex[opponentLocal]!;
-            const base = (
-              baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[]
-            )[playerLocal];
-            if (base !== undefined && !base.isZero()) {
-              const boosted = base.clone();
-              boosted.or(nextScoreGroupBegin - scoreGroupBegin);
-              boosted.add(1);
-              mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
-            }
+        // Finalize that this MDP will be matched
+        matched[playerGlobal] = true;
+        remainingMatchedMDPs--;
+
+        // Boost edges from this MDP to current bracket by bracket size
+        finalBoostLoop: for (
+          let opponentLocal = scoreGroupBegin;
+          opponentLocal < nextScoreGroupBegin;
+          opponentLocal++
+        ) {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          const opponentGlobal = playersByIndex[opponentLocal]!;
+          const base = (
+            baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[]
+          )[playerLocal];
+          if (base === undefined || base.isZero()) {
+            continue finalBoostLoop;
           }
+          const boosted = base.clone();
+          boosted.or(nextScoreGroupBegin - scoreGroupBegin);
+          boosted.add(1);
+          mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
         }
       }
 
@@ -1062,12 +1063,13 @@ function pair(
         const base = (
           baseEdgeWeights[opponentLocal] as (DynamicUint | undefined)[]
         )[playerLocal];
-        if (base !== undefined && !base.isZero()) {
-          const boosted = base.clone();
-          boosted.add(addend);
-          mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
-          addend++;
+        if (base === undefined || base.isZero()) {
+          continue opponentFinalizeLoop;
         }
+        const boosted = base.clone();
+        boosted.add(addend);
+        mc.setEdgeWeight(playerGlobal, opponentGlobal, boosted);
+        addend++;
       }
 
       currentPhase = 'bracket-mdp-finalize';
@@ -1075,19 +1077,21 @@ function pair(
 
       // Finalize the pairing
       const matchGlobal = stableMatching[playerGlobal] ?? -1;
-      if (matchGlobal !== playerGlobal && matchGlobal >= 0) {
-        matched[matchGlobal] = true;
-        finalizePairMC(playerGlobal, matchGlobal, mc, np);
-        matchedPairs.push([playerGlobal, matchGlobal]);
-        if (trace) {
-          trace({
-            phase: currentPhase,
-            playerA: pairedSorted[playerGlobal]?.id ?? '',
-            playerB: pairedSorted[matchGlobal]?.id ?? '',
-            system: 'dutch',
-            type: 'pairing:pair-finalized',
-          });
-        }
+      if (matchGlobal === playerGlobal || !(matchGlobal >= 0)) {
+        continue mdpFinalizeLoop;
+      }
+
+      matched[matchGlobal] = true;
+      finalizePairMC(playerGlobal, matchGlobal, mc, np);
+      matchedPairs.push([playerGlobal, matchGlobal]);
+      if (trace) {
+        trace({
+          phase: currentPhase,
+          playerA: pairedSorted[playerGlobal]?.id ?? '',
+          playerB: pairedSorted[matchGlobal]?.id ?? '',
+          system: 'dutch',
+          type: 'pairing:pair-finalized',
+        });
       }
     }
 
@@ -1194,7 +1198,11 @@ function pair(
           (stableMatching[playerGlobal] ?? -1) < nextScoreGroupBeginVertex;
 
         if (isMatchedWithin) {
-          for (let oIndex = pIndex + 1; oIndex < remainder.length; oIndex++) {
+          s1ExchangeLoop: for (
+            let oIndex = pIndex + 1;
+            oIndex < remainder.length;
+            oIndex++
+          ) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const opponentLocal = remainder[oIndex]!;
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -1205,10 +1213,12 @@ function pair(
               playerRemainderIndex,
               remainderPairs,
             );
-            if (!ew.isZero()) {
-              ew.subtract(1);
-              mc.setEdgeWeight(playerGlobal, opponentGlobal, ew);
+            if (ew.isZero()) {
+              continue s1ExchangeLoop;
             }
+
+            ew.subtract(1);
+            mc.setEdgeWeight(playerGlobal, opponentGlobal, ew);
           }
           currentPhase = 'bracket-exchange-s1';
           stableMatching = runBlossom();
@@ -1257,7 +1267,11 @@ function pair(
           (stableMatching[playerGlobal] ?? -1) < nextScoreGroupBeginVertex;
 
         if (!isAlreadyExchanged) {
-          for (let oIndex = pIndex + 1; oIndex < remainder.length; oIndex++) {
+          s2ExchangeLoop: for (
+            let oIndex = pIndex + 1;
+            oIndex < remainder.length;
+            oIndex++
+          ) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const opponentLocal = remainder[oIndex]!;
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -1268,10 +1282,12 @@ function pair(
               remIndex,
               remainderPairs,
             );
-            if (!ew.isZero()) {
-              ew.add(1);
-              mc.setEdgeWeight(playerGlobal, opponentGlobal, ew);
+            if (ew.isZero()) {
+              continue s2ExchangeLoop;
             }
+
+            ew.add(1);
+            mc.setEdgeWeight(playerGlobal, opponentGlobal, ew);
           }
           currentPhase = 'bracket-exchange-s2';
           stableMatching = runBlossom();
@@ -1422,24 +1438,26 @@ function pair(
 
       const matchGlobal = stableMatching[playerGlobal] ?? -1;
       if (
-        matchGlobal !== playerGlobal &&
-        matchGlobal >= 0 &&
-        matched[playerGlobal] !== true &&
-        matched[matchGlobal] !== true
+        matchGlobal === playerGlobal ||
+        !(matchGlobal >= 0) ||
+        matched[playerGlobal] === true ||
+        matched[matchGlobal] === true
       ) {
-        matched[playerGlobal] = true;
-        matched[matchGlobal] = true;
-        finalizePairMC(playerGlobal, matchGlobal, mc, np);
-        matchedPairs.push([playerGlobal, matchGlobal]);
-        if (trace) {
-          trace({
-            phase: currentPhase,
-            playerA: pairedSorted[playerGlobal]?.id ?? '',
-            playerB: pairedSorted[matchGlobal]?.id ?? '',
-            system: 'dutch',
-            type: 'pairing:pair-finalized',
-          });
-        }
+        continue remainderFinalLoop;
+      }
+
+      matched[playerGlobal] = true;
+      matched[matchGlobal] = true;
+      finalizePairMC(playerGlobal, matchGlobal, mc, np);
+      matchedPairs.push([playerGlobal, matchGlobal]);
+      if (trace) {
+        trace({
+          phase: currentPhase,
+          playerA: pairedSorted[playerGlobal]?.id ?? '',
+          playerB: pairedSorted[matchGlobal]?.id ?? '',
+          system: 'dutch',
+          type: 'pairing:pair-finalized',
+        });
       }
     }
 

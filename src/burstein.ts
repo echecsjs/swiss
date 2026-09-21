@@ -137,8 +137,7 @@ function bursteinRankCompare(
   if (bA !== bB) return bB - bA; // higher Buchholz ranks first
   const sA = sbById.get(a.id) ?? 0;
   const sB = sbById.get(b.id) ?? 0;
-  if (sA !== sB) return sB - sA; // higher SB ranks first
-  return a.tpn - b.tpn; // lower TPN ranks first
+  return sA === sB ? a.tpn - b.tpn : sB - sA;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,9 +152,13 @@ function bursteinRankCompare(
  * fold-over pairing criterion encoding.
  */
 interface BursteinContext extends BracketContext {
-  /** Map from player id → rank index (0-based) in Burstein sorted order */
+  /**
+  Map from player id → rank index (0-based) in Burstein sorted order
+  */
   rankIndex: Map<string, number>;
-  /** Total number of players being paired */
+  /**
+  Total number of players being paired
+  */
   playerCount: number;
 }
 
@@ -168,16 +171,13 @@ const BURSTEIN_CRITERIA: Criterion[] = [
   {
     bits: 1,
     evaluate: (a: PlayerState, b: PlayerState) => {
-      if (
-        a.preferenceStrength === 'absolute' &&
+      return a.preferenceStrength === 'absolute' &&
         b.preferenceStrength === 'absolute' &&
         a.preferredColor !== undefined &&
         b.preferredColor !== undefined &&
         a.preferredColor === b.preferredColor
-      ) {
-        return 0;
-      }
-      return 1;
+        ? 0
+        : 1;
     },
   },
 
@@ -296,8 +296,9 @@ function pair(
   // score group. For cross-score-group cases the C5/C6 criteria handle
   // floater minimisation.
   const sorted = [...states].toSorted((a, b) => {
-    if (a.score !== b.score) return b.score - a.score;
-    return bursteinRankCompare(a, b, buchholzById, sbById);
+    return a.score === b.score
+      ? bursteinRankCompare(a, b, buchholzById, sbById)
+      : b.score - a.score;
   });
 
   const isNeedsBye = sorted.length % 2 === 1;
@@ -312,13 +313,9 @@ function pair(
   // Bye tiebreak: fewest unplayed rounds first; among ties, lowest ranked
   // (highest in Burstein index = last in sorted order = largest index)
   function bursteinByeTiebreak(a: PlayerState, b: PlayerState): number {
-    if (a.unplayedRounds !== b.unplayedRounds)
-      return a.unplayedRounds - b.unplayedRounds;
-    // Lower ranking in Burstein order → gets bye first (3.1.5 "lowest ranking")
-    // In sorted array, higher index = lower ranking, so we want the one at
-    // higher index first — i.e. the one that compares as "greater" in ranking
-    // (meaning worse = larger positive from bursteinRankCompare).
-    return -bursteinRankCompare(a, b, buchholzById, sbById);
+    return a.unplayedRounds === b.unplayedRounds
+      ? -bursteinRankCompare(a, b, buchholzById, sbById)
+      : a.unplayedRounds - b.unplayedRounds;
   }
 
   let byeState: PlayerState | undefined;
@@ -382,22 +379,23 @@ function pair(
   for (const s of pairedPool) {
     if (seen.has(s.id)) continue;
     const partnerId = matching.get(s.id);
-    if (partnerId !== undefined) {
-      seen.add(s.id);
-      seen.add(partnerId);
-      const a = stateById.get(s.id);
-      const b = stateById.get(partnerId);
-      if (a === undefined || b === undefined) continue;
-      allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
-      if (trace) {
-        trace({
-          phase: 'main',
-          playerA: a.id,
-          playerB: b.id,
-          system: 'burstein',
-          type: 'pairing:pair-finalized',
-        });
-      }
+    if (partnerId === undefined) {
+      continue;
+    }
+    seen.add(s.id);
+    seen.add(partnerId);
+    const a = stateById.get(s.id);
+    const b = stateById.get(partnerId);
+    if (a === undefined || b === undefined) continue;
+    allPairedTuples.push(a.tpn < b.tpn ? [a, b] : [b, a]);
+    if (trace) {
+      trace({
+        phase: 'main',
+        playerA: a.id,
+        playerB: b.id,
+        system: 'burstein',
+        type: 'pairing:pair-finalized',
+      });
     }
   }
 
