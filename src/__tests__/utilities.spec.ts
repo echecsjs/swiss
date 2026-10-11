@@ -40,12 +40,7 @@ const GAMES: CompletedRound[] = [
 // Helpers used by allocateColor tests
 // ---------------------------------------------------------------------------
 
-function makeState(
-  id: string,
-  score: number,
-  tpn: number,
-  overrides: Partial<PlayerState> = {},
-): PlayerState {
+function makeState(id: string, score: number, tpn: number): PlayerState {
   return {
     byeCount: 0,
     colorDiff: 0,
@@ -58,7 +53,6 @@ function makeState(
     score,
     tpn,
     unplayedRounds: 0,
-    ...overrides,
   };
 }
 
