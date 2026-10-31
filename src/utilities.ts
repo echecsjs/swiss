@@ -1,8 +1,8 @@
 /**
- * @internal
- * Shared utilities for all FIDE Swiss pairing systems.
- * Provides a precomputed PlayerState struct and related helper functions.
- */
+@internal
+Shared utilities for all FIDE Swiss pairing systems.
+Provides a precomputed PlayerState struct and related helper functions.
+*/
 import type { CompletedRound, FloatKind, Game, Player } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -35,9 +35,9 @@ interface PlayerState {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the score earned by `player` in a game.
- * 1 for a win, 0.5 for a draw, 0 for a loss or no-result.
- */
+Returns the score earned by `player` in a game.
+1 for a win, 0.5 for a draw, 0 for a loss or no-result.
+*/
 function scoreFor(player: string, game: Game): number {
   if (game.result === 'draw') return 0.5;
   if (game.result === 'none') return 0;
@@ -52,9 +52,9 @@ function scoreFor(player: string, game: Game): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Builds all PlayerState objects from the player list and game history.
- * All per-player data is computed once and cached.
- */
+Builds all PlayerState objects from the player list and game history.
+All per-player data is computed once and cached.
+*/
 function buildPlayerStates(
   players: Player[],
   rounds: CompletedRound[],
@@ -268,9 +268,9 @@ function buildPlayerStates(
 }
 
 /**
- * Returns a Map with keys = scores sorted descending,
- * values = PlayerState arrays sorted by TPN ascending within each group.
- */
+Returns a Map with keys = scores sorted descending,
+values = PlayerState arrays sorted by TPN ascending within each group.
+*/
 function scoreGroups(states: PlayerState[]): Map<number, PlayerState[]> {
   const groups = Map.groupBy(states, (state) => state.score);
 
@@ -284,14 +284,14 @@ function scoreGroups(states: PlayerState[]): Map<number, PlayerState[]> {
 }
 
 /**
- * Assigns the bye per FIDE basic rules.
- * Returns the selected player state, or undefined if player count is even.
- *
- * 1. If player count is even, return undefined.
- * 2. Filter to players with byeCount === 0 (eligible). If none, use all.
- * 3. Among eligible, find those with the lowest score.
- * 4. If tied, use the tiebreak comparator.
- */
+Assigns the bye per FIDE basic rules.
+Returns the selected player state, or undefined if player count is even.
+
+1. If player count is even, return undefined.
+2. Filter to players with byeCount === 0 (eligible). If none, use all.
+3. Among eligible, find those with the lowest score.
+4. If tied, use the tiebreak comparator.
+*/
 function assignBye(
   states: PlayerState[],
   _rounds: CompletedRound[],
@@ -313,13 +313,13 @@ function assignBye(
 }
 
 /**
- * Color allocation engine.
- *
- * Determines the Higher-Ranked Player (HRP): higher score wins; if tied,
- * use rankCompare (negative return = first arg ranks higher).
- * Walks the rules array until one returns a decision.
- * Fallback: HRP gets white.
- */
+Color allocation engine.
+
+Determines the Higher-Ranked Player (HRP): higher score wins; if tied,
+use rankCompare (negative return = first arg ranks higher).
+Walks the rules array until one returns a decision.
+Fallback: HRP gets white.
+*/
 function allocateColor(
   a: PlayerState,
   b: PlayerState,
@@ -365,8 +365,8 @@ function allocateColor(
 // ---------------------------------------------------------------------------
 
 /**
- * Maps preference strength to a numeric rank for comparison in rule 5.2.2.
- */
+Maps preference strength to a numeric rank for comparison in rule 5.2.2.
+*/
 function rankPreference(s: PlayerState['preferenceStrength']): number {
   if (s === 'absolute') return 3;
   if (s === 'strong') return 2;
@@ -374,13 +374,13 @@ function rankPreference(s: PlayerState['preferenceStrength']): number {
 }
 
 /**
- * Round-1 guard rule for systems whose spec defines Article 5.2.1 as:
- * "When both players have yet to play a game, if the higher ranked player
- * has an odd TPN, give them the initial-colour; otherwise the opposite."
- *
- * Used by Dubov (C.04.4.1) and Burstein (C.04.4.2). Dutch and Lim do not
- * need this — their fallback (5.2.5) handles round 1 implicitly.
- */
+Round-1 guard rule for systems whose spec defines Article 5.2.1 as:
+"When both players have yet to play a game, if the higher ranked player
+has an odd TPN, give them the initial-colour; otherwise the opposite."
+
+Used by Dubov (C.04.4.1) and Burstein (C.04.4.2). Dutch and Lim do not
+need this — their fallback (5.2.5) handles round 1 implicitly.
+*/
 const ROUND_1_COLOR_RULE: ColorRule = (hrp, opp) => {
   const isHrpHasHistory = hrp.colorHistory.some((c) => c !== undefined);
   const isOppHasHistory = opp.colorHistory.some((c) => c !== undefined);
@@ -391,17 +391,17 @@ const ROUND_1_COLOR_RULE: ColorRule = (hrp, opp) => {
 };
 
 /**
- * Common FIDE Article 5.2 colour rules shared by all blossom-based pairing
- * systems (Dutch, Dubov, Burstein, Lim).
- *
- * 5.2.1  Grant both colour preferences (if they differ).
- * 5.2.2  Grant the stronger preference; both absolute → wider colorDiff wins.
- * 5.2.3  Alternate from the most recent round where colours diverged.
- * 5.2.4  Grant the HRP's colour preference.
- * 5.2.5  Odd TPN → initial colour (white).
- *
- * Dubov and Burstein prepend ROUND_1_COLOR_RULE before these rules.
- */
+Common FIDE Article 5.2 colour rules shared by all blossom-based pairing
+systems (Dutch, Dubov, Burstein, Lim).
+
+5.2.1  Grant both colour preferences (if they differ).
+5.2.2  Grant the stronger preference; both absolute → wider colorDiff wins.
+5.2.3  Alternate from the most recent round where colours diverged.
+5.2.4  Grant the HRP's colour preference.
+5.2.5  Odd TPN → initial colour (white).
+
+Dubov and Burstein prepend ROUND_1_COLOR_RULE before these rules.
+*/
 // 5.2.1 Grant both colour preferences
 const grantBothPreferences: ColorRule = (hrp, opp) => {
   if (
@@ -500,19 +500,15 @@ function colorHistory(player: string, rounds: CompletedRound[]): Color[] {
       (g) => g.white === player || g.black === player,
     );
     if (game === undefined) continue;
-    if (game.white === player) {
-      colors.push('white');
-    } else {
-      colors.push('black');
-    }
+    colors.push(game.white === player ? 'white' : 'black');
   }
   return colors;
 }
 
 /**
- * Returns the color difference: positive means player has played more black
- * than white (prefers white next), negative means the opposite.
- */
+Returns the color difference: positive means player has played more black
+than white (prefers white next), negative means the opposite.
+*/
 function colorPreference(player: string, rounds: CompletedRound[]): number {
   let diff = 0;
   for (const color of colorHistory(player, rounds)) {
@@ -522,9 +518,9 @@ function colorPreference(player: string, rounds: CompletedRound[]): number {
 }
 
 /**
- * Returns score groups for a list of players (legacy, Player-based).
- * Used by lim.ts and lexicographic.ts.
- */
+Returns score groups for a list of players (legacy, Player-based).
+Used by lim.ts and lexicographic.ts.
+*/
 function playerScoreGroups(
   players: Player[],
   rounds: CompletedRound[],
@@ -533,9 +529,9 @@ function playerScoreGroups(
 }
 
 /**
- * Returns the number of matches (unique rounds with a real opponent) played.
- * Bye rounds are not counted.
- */
+Returns the number of matches (unique rounds with a real opponent) played.
+Bye rounds are not counted.
+*/
 function matchCount(player: string, rounds: CompletedRound[]): number {
   let count = 0;
   for (const round of rounds) {
@@ -548,10 +544,10 @@ function matchCount(player: string, rounds: CompletedRound[]): number {
 }
 
 /**
- * Returns an array of colors representing the match-level color history.
- * For each match (unique round with a real opponent), the color is determined
- * by the first game in that round. Bye rounds are excluded.
- */
+Returns an array of colors representing the match-level color history.
+For each match (unique round with a real opponent), the color is determined
+by the first game in that round. Bye rounds are excluded.
+*/
 function matchColorHistory(player: string, rounds: CompletedRound[]): Color[] {
   const colors: Color[] = [];
   for (const round of rounds) {
@@ -565,8 +561,8 @@ function matchColorHistory(player: string, rounds: CompletedRound[]): Color[] {
 }
 
 /**
- * Returns true if players a and b have faced each other in any previous game.
- */
+Returns true if players a and b have faced each other in any previous game.
+*/
 function hasFaced(a: string, b: string, rounds: CompletedRound[]): boolean {
   return rounds
     .flatMap((r) => r.games)
@@ -577,9 +573,9 @@ function hasFaced(a: string, b: string, rounds: CompletedRound[]): boolean {
 }
 
 /**
- * Assigns colors to a pairing based on each player's color history.
- * The player with a positive color preference (has played more black) gets white.
- */
+Assigns colors to a pairing based on each player's color history.
+The player with a positive color preference (has played more black) gets white.
+*/
 function assignColors(
   a: Player,
   b: Player,
@@ -591,9 +587,9 @@ function assignColors(
 }
 
 /**
- * Returns players sorted by score descending, then rating descending.
- * This is the standard ranking used by all FIDE Swiss pairing systems.
- */
+Returns players sorted by score descending, then rating descending.
+This is the standard ranking used by all FIDE Swiss pairing systems.
+*/
 function rankPlayers(players: Player[], rounds: CompletedRound[]): Player[] {
   return [...players].toSorted((a, b) => {
     const scoreDiff = score(b.id, rounds) - score(a.id, rounds);
@@ -602,12 +598,12 @@ function rankPlayers(players: Player[], rounds: CompletedRound[]): Player[] {
 }
 
 /**
- * Returns the player who should receive a bye this round, or undefined if
- * the player count is even. Prefers the lowest-ranked player who has not
- * already received a bye.
- *
- * @deprecated Use assignBye(states, rounds, tiebreak) instead.
- */
+Returns the player who should receive a bye this round, or undefined if
+the player count is even. Prefers the lowest-ranked player who has not
+already received a bye.
+
+@deprecated Use assignBye(states, rounds, tiebreak) instead.
+*/
 function assignByeLegacy(
   ranked: Player[],
   rounds: CompletedRound[],
@@ -620,9 +616,9 @@ function assignByeLegacy(
 }
 
 /**
- * Type A color preference for Swiss Team (FIDE C.04.6 Article 1.7.1).
- * Returns 'white' if the team prefers White, 'black' if Black, undefined if no preference.
- */
+Type A color preference for Swiss Team (FIDE C.04.6 Article 1.7.1).
+Returns 'white' if the team prefers White, 'black' if Black, undefined if no preference.
+*/
 function typeAColorPreference(
   player: string,
   rounds: CompletedRound[],
@@ -657,16 +653,16 @@ function typeAColorPreference(
 }
 
 /**
- * Returns true when playerScore > totalRounds / 2 (FIDE C.04.3 Article 1.8).
- */
+Returns true when playerScore > totalRounds / 2 (FIDE C.04.3 Article 1.8).
+*/
 function isTopscorer(playerScore: number, totalRounds: number): boolean {
   return playerScore > totalRounds / 2;
 }
 
 /**
- * Returns count of rounds where player had no game at all (not even a bye).
- * A bye counts as played.
- */
+Returns count of rounds where player had no game at all (not even a bye).
+A bye counts as played.
+*/
 function unplayedRounds(player: string, rounds: CompletedRound[]): number {
   let count = 0;
   for (const round of rounds) {
@@ -682,11 +678,11 @@ function unplayedRounds(player: string, rounds: CompletedRound[]): number {
 }
 
 /**
- * Returns per-round float status for a player.
- * 'down' = player floated down (higher score or received bye),
- * 'up' = player floated up (lower score),
- * undefined = equal scores or no game that round.
- */
+Returns per-round float status for a player.
+'down' = player floated down (higher score or received bye),
+'up' = player floated up (lower score),
+undefined = equal scores or no game that round.
+*/
 function floatHistory(player: string, rounds: CompletedRound[]): FloatKind[] {
   const result: FloatKind[] = [];
   for (const [roundIndex, round] of rounds.entries()) {

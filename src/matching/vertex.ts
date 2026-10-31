@@ -2,18 +2,18 @@ import type { DynamicUint } from '../dynamic-uint.js';
 import type { Blossom, ParentBlossom, RootBlossom } from './blossom.js';
 
 /**
- * Per-vertex state for the persistent matching computer.
- *
- * Ported from bbpPairings `vertexsig.h` + `verteximpl.h`.
- *
- * Dual variable is aliased from `graph.vertexDualVariables[vertex.vertexIndex]`
- * — both reference the same DynamicUint object.
- *
- * Edge weights are stored doubled internally to keep all values integral
- * when divided for dual-variable arithmetic.
- *
- * @internal Not part of the public API.
- */
+Per-vertex state for the persistent matching computer.
+
+Ported from bbpPairings `vertexsig.h` + `verteximpl.h`.
+
+Dual variable is aliased from `graph.vertexDualVariables[vertex.vertexIndex]`
+— both reference the same DynamicUint object.
+
+Edge weights are stored doubled internally to keep all values integral
+when divided for dual-variable arithmetic.
+
+@internal Not part of the public API.
+*/
 class Vertex {
   /**
   Discriminator — always `true` for Vertex, used to distinguish from Blossom in the union type.
@@ -26,9 +26,9 @@ class Vertex {
   readonly vertexIndex: number;
 
   /**
-   * Dual variable for this vertex. Alias of `graph.vertexDualVariables[vertexIndex]`.
-   * Set when the vertex is added to the graph (Task 3).
-   */
+  Dual variable for this vertex. Alias of `graph.vertexDualVariables[vertexIndex]`.
+  Set when the vertex is added to the graph (Task 3).
+  */
   dualVariable!: DynamicUint;
 
   /**
@@ -41,15 +41,15 @@ class Vertex {
   // ---------------------------------------------------------------------------
 
   /**
-   * The other endpoint of the minimum-resistance outer edge.
-   * `undefined` when no such edge has been recorded.
-   */
+  The other endpoint of the minimum-resistance outer edge.
+  `undefined` when no such edge has been recorded.
+  */
   minOuterEdge: Vertex | undefined;
 
   /**
-   * Minimum resistance among outgoing outer edges from this vertex.
-   * Initialised to a zero-valued DynamicUint of appropriate word size.
-   */
+  Minimum resistance among outgoing outer edges from this vertex.
+  Initialised to a zero-valued DynamicUint of appropriate word size.
+  */
   minOuterEdgeResistance: DynamicUint;
 
   // ---------------------------------------------------------------------------
@@ -81,9 +81,9 @@ class Vertex {
   previousBlossom: Blossom | undefined;
 
   /**
-   * The RootBlossom at the top of the blossom tree containing this vertex.
-   * `undefined` until this vertex is placed under a RootBlossom.
-   */
+  The RootBlossom at the top of the blossom tree containing this vertex.
+  `undefined` until this vertex is placed under a RootBlossom.
+  */
   rootBlossom: RootBlossom | undefined;
 
   // ---------------------------------------------------------------------------
@@ -117,13 +117,13 @@ class Vertex {
   constructor(
     index: number,
     zero: DynamicUint,
-    aboveMaxEdgeWeight?: DynamicUint,
+    aboveMaxEdgeWeight: DynamicUint = zero,
   ) {
     this.vertexIndex = index;
     this.edgeWeights = [];
     this.minOuterEdge = undefined;
     // C++ verteximpl.h:29 — initialised to aboveMaxEdgeWeight (infinity sentinel).
-    this.minOuterEdgeResistance = (aboveMaxEdgeWeight ?? zero).clone();
+    this.minOuterEdgeResistance = aboveMaxEdgeWeight.clone();
     this.nextBlossom = undefined;
     this.nextVertex = undefined;
     this.parentBlossom = undefined;

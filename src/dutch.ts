@@ -1,22 +1,22 @@
 /**
- * FIDE Dutch System pairing (C.04.3) — bracket-by-bracket blossom matching.
- *
- * Implements the full bbpPairings `computeMatching` algorithm:
- * 1. Build PlayerState for every player. Sort by score DESC, TPN ASC.
- * 2. Compute score-group parameters (scoreGroupSizeBits, scoreGroupShifts,
- *    scoreGroupsShift).
- * 3. Feasibility pass (odd player count): determine byeAssigneeScore,
- *    isSingleDownfloaterByeAssignee, unplayedGameRanks.
- * 4. Bracket-by-bracket blossom:
- *    a. Add next score group players to playersByIndex.
- *    b. Compute baseEdgeWeights for all pairs.
- *    c. Run blossom.
- *    d. MDP selection: for each downfloater, confirm or boost and re-run.
- *    e. Finalize MDP pairs.
- *    f. Remainder: add exchange ordering bits, select exchanges, finalize.
- *    g. Carry unmatched players as downfloaters to next bracket.
- * 5. Allocate colours (Article 5.2). Assign bye.
- */
+FIDE Dutch System pairing (C.04.3) — bracket-by-bracket blossom matching.
+
+Implements the full bbpPairings `computeMatching` algorithm:
+1. Build PlayerState for every player. Sort by score DESC, TPN ASC.
+2. Compute score-group parameters (scoreGroupSizeBits, scoreGroupShifts,
+   scoreGroupsShift).
+3. Feasibility pass (odd player count): determine byeAssigneeScore,
+   isSingleDownfloaterByeAssignee, unplayedGameRanks.
+4. Bracket-by-bracket blossom:
+   a. Add next score group players to playersByIndex.
+   b. Compute baseEdgeWeights for all pairs.
+   c. Run blossom.
+   d. MDP selection: for each downfloater, confirm or boost and re-run.
+   e. Finalize MDP pairs.
+   f. Remainder: add exchange ordering bits, select exchanges, finalize.
+   g. Carry unmatched players as downfloaters to next bracket.
+5. Allocate colours (Article 5.2). Assign bye.
+*/
 
 import { maxWeightMatching } from './blossom.js';
 import { DynamicUint } from './dynamic-uint.js';
@@ -552,8 +552,7 @@ function pair(
     if (trace) {
       const pairs: [string, string][] = [];
       let unmatchedCount = 0;
-      for (const [k, element] of m0.entries()) {
-        const mk = element ?? -1;
+      for (const [k, mk = -1] of m0.entries()) {
         if (mk > k) {
           const aState = sorted[k];
           const bState = sorted[mk];
@@ -680,20 +679,20 @@ function pair(
   // -------------------------------------------------------------------------
 
   /**
-   * matchedPairs: global list of finalized pairings (indices into pairedSorted)
-   */
+  matchedPairs: global list of finalized pairings (indices into pairedSorted)
+  */
   const matchedPairs: [number, number][] = [];
 
   /**
-   * matched[i] = true when player i has been finalized
-   */
+  matched[i] = true when player i has been finalized
+  */
   const matched: boolean[] = Array.from({ length: np }, () => false);
 
   /**
-   * playersByIndex: local indices of active players in the current bracket pass.
-   * MDPs (downfloaters) come first (indices 0..scoreGroupBegin-1),
-   * then the current score group's players.
-   */
+  playersByIndex: local indices of active players in the current bracket pass.
+  MDPs (downfloaters) come first (indices 0..scoreGroupBegin-1),
+  then the current score group's players.
+  */
   let playersByIndex: number[] = []; // indices into pairedSorted
   let scoreGroupBegin = 0; // how many MDPs are in playersByIndex
 
@@ -844,8 +843,7 @@ function pair(
       if (trace) {
         const pairs: [string, string][] = [];
         let unmatchedCount = 0;
-        for (const [k, element] of stableM.entries()) {
-          const mk = element ?? -1;
+        for (const [k, mk = -1] of stableM.entries()) {
           if (mk > k) {
             const aState = pairedSorted[k];
             const bState = pairedSorted[mk];
@@ -1570,8 +1568,7 @@ function pair(
       if (trace) {
         const pairs: [string, string][] = [];
         let unmatchedCount = 0;
-        for (const [k, element] of fallbackMatch.entries()) {
-          const mk = element ?? -1;
+        for (const [k, mk = -1] of fallbackMatch.entries()) {
           if (mk > k) {
             const aState = pairedSorted[k];
             const bState = pairedSorted[mk];
@@ -1589,13 +1586,11 @@ function pair(
         });
       }
       const seen = new Set<number>();
-      for (const [k, element] of fallbackMatch.entries()) {
-        const mk = element ?? -1;
+      for (const [k, mk = -1] of fallbackMatch.entries()) {
         if (mk === k || mk < 0 || seen.has(k) || seen.has(mk)) continue;
         seen.add(k);
         seen.add(mk);
-        if (k < mk) matchedPairs.push([k, mk]);
-        else matchedPairs.push([mk, k]);
+        matchedPairs.push(k < mk ? [k, mk] : [mk, k]);
       }
     }
   }
@@ -1666,8 +1661,7 @@ function pair(
     if (trace) {
       const pairs: [string, string][] = [];
       let unmatchedCount = 0;
-      for (const [k, element] of globalMatch.entries()) {
-        const mk = element ?? -1;
+      for (const [k, mk = -1] of globalMatch.entries()) {
         if (mk > k) {
           const aState = pairedSorted[k];
           const bState = pairedSorted[mk];
@@ -1691,8 +1685,7 @@ function pair(
       if (mk === k || mk < 0) continue;
       seenGlobal.add(k);
       seenGlobal.add(mk);
-      if (k < mk) matchedPairs.push([k, mk]);
-      else matchedPairs.push([mk, k]);
+      matchedPairs.push(k < mk ? [k, mk] : [mk, k]);
     }
   }
 
